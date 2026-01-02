@@ -1,0 +1,102 @@
+/* Accordion Slider Styles */
+.portfolio-accordion {
+    display: flex;
+    width: 100%;
+    height: 600px; /* Adjust height as needed */
+    overflow: hidden;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+.accordion-item {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    transition: flex 0.5s cubic-bezier(0.05, 0.61, 0.41, 0.95), filter 0.5s, transform 0.3s;
+    margin: 0 5px;
+    border-radius: 15px; /* Rounded corners */
+    cursor: pointer;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    filter: brightness(0.8) grayscale(0.5); /* Dim inactive items */
+}
+
+/* Hover/Active State */
+.accordion-item:hover,
+.accordion-item.active {
+    flex: 5; /* This expands the item */
+    filter: brightness(1) grayscale(0);
+    transform: scale(1.02);
+    z-index: 10;
+}
+
+/* Content Overlay */
+.accordion-content {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    color: #fff;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s ease 0.2s, transform 0.3s ease 0.2s;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    padding: 20px;
+    border-radius: 10px;
+    pointer-events: none; /* Let clicks pass through to the item/link */
+}
+
+.accordion-item:hover .accordion-content,
+.accordion-item.active .accordion-content {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.accordion-content h3 {
+    font-size: 24px;
+    margin-bottom: 5px;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    color: #fff;
+}
+
+.accordion-content p {
+    font-size: 14px;
+    margin: 0;
+    color: #eee;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .portfolio-accordion {
+        flex-direction: column;
+        height: auto;
+        min-height: 600px; /* Ensure enough height for the stack */
+    }
+    
+    .accordion-item {
+        /* Collapsed state: just a thin strip to show it exists */
+        flex: 0 0 60px; 
+        width: 100%;
+        margin: 2px 0; /* Tighter margins */
+        border-radius: 10px;
+    }
+    
+    /* Remove hover effect on mobile to prevent sticky states, rely on .active class (click) */
+    .accordion-item:hover {
+        flex: 0 0 60px; /* Stay collapsed on hover, only expand on click/active */
+    }
+
+    .accordion-item.active {
+        flex: 0 0 400px; /* Expanded state: big enough to see content */
+        margin: 10px 0; /* Add a bit of breathing room when active */
+    }
+
+    .accordion-content {
+        bottom: 15px;
+        left: 15px;
+        right: 15px;
+        padding: 15px;
+    }
+}

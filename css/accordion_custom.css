@@ -1,0 +1,58 @@
+/* Custom Flush Accordion Styles */
+.accordion_flush_custom .card {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #e1e1e1;
+    border-radius: 0;
+}
+
+.accordion_flush_custom .card:last-child {
+    border-bottom: none;
+}
+
+.accordion_flush_custom .card-header {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+.accordion_flush_custom .card-header h5 button {
+    color: #0b1033;
+    font-family: "Roboto", sans-serif;
+    font-weight: 500;
+    font-size: 18px;
+    text-decoration: none;
+    padding: 15px 0;
+    width: 100%;
+    text-align: left;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.accordion_flush_custom .card-header h5 button:hover,
+.accordion_flush_custom .card-header h5 button:focus {
+    text-decoration: none;
+    color: #6fbbfe;
+}
+
+.accordion_flush_custom .card-body {
+    padding: 0 0 20px 0;
+    color: #7c8d93;
+    font-family: "Roboto", sans-serif;
+    font-size: 15px;
+    line-height: 28px;
+}
+
+/* Accordion Icon (Plus/Minus) */
+.accordion_flush_custom .card-header h5 button::after {
+    content: "+";
+    font-size: 20px;
+    color: #6fbbfe;
+    font-weight: 300;
+}
+
+.accordion_flush_custom .card-header h5 button[aria-expanded="true"]::after {
+    content: "-";
+}

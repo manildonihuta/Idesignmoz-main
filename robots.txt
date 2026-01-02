@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /css/
+Disallow: /fonts/
+Disallow: /js/
+Disallow: /scss/
+Disallow: /vendors/
+Disallow: /.vscode/
