@@ -207,7 +207,7 @@ i:before {
   font-family: "Roboto", sans-serif;
   font-weight: bold;
   text-transform: uppercase;
-  color: #fff;
+  color: #7c8d93;
   letter-spacing: 0.65px;
   padding: 0px;
   line-height: 118px;
@@ -282,7 +282,7 @@ i:before {
 
 .main_menu_area .navbar .navbar-nav li:hover a,
 .main_menu_area .navbar .navbar-nav li.active a {
-  color: #0b1033;
+  color: #000000;
 }
 
 .main_menu_area.navbar_fixed {
@@ -291,7 +291,10 @@ i:before {
   top: -70px;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   -webkit-transform: translateY(70px);
   -ms-transform: translateY(70px);
   transform: translateY(70px);
@@ -323,7 +326,7 @@ i:before {
 
 .banner_area:before {
   content: "";
-  background: url(../img/banner/banner-bg.png) no-repeat scroll center right;
+  /* background: url(../img/banner/banner-bg.png) no-repeat scroll center right; */
   position: absolute;
   right: 0px;
   top: 0px;

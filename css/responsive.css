@@ -107,10 +107,10 @@ html, body {
         line-height: 50px;
         padding: 0px 15px;
         border-bottom: 1px solid rgba(0,0,0,0.1);
-        color: #333;
+        color: #7c8d93;
     }
     .main_menu_area .navbar .navbar-nav li:hover a, .main_menu_area .navbar .navbar-nav li.active a {
-        color: #97ccfe;
+        color: #000000;
     }
     .main_menu_area .navbar .navbar-nav li a:focus{
         color: #97ccfe;
@@ -123,7 +123,11 @@ html, body {
         text-align: left;
     }
     .main_menu_area .navbar .navbar-collapse {
-        background: #fff;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
         max-height: 306px;
         overflow-y: auto;
         width: 100%;
@@ -135,7 +139,7 @@ html, body {
     .main_menu_area .navbar .navbar-toggler {
         padding: 10px;
         cursor: pointer;
-        background: #fff;
+        background: transparent;
         border-radius: 4px;
     }
     .main_menu_area .navbar .navbar-toggler span {

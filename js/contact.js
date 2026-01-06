@@ -55,28 +55,18 @@ $(document).ready(function(){
                 }
             },
             submitHandler: function(form) {
-                $(form).ajaxSubmit({
-                    type:"POST",
-                    data: $(form).serialize(),
-                    url:"contact_process.php",
-                    success: function() {
-                        $('#contactForm :input').attr('disabled', 'disabled');
-                        $('#contactForm').fadeTo( "slow", 1, function() {
-                            $(this).find(':input').attr('disabled', 'disabled');
-                            $(this).find('label').css('cursor','default');
-                            $('#success').fadeIn()
-                            $('.modal').modal('hide');
-		                	$('#success').modal('show');
-                        })
-                    },
-                    error: function() {
-                        $('#contactForm').fadeTo( "slow", 1, function() {
-                            $('#error').fadeIn()
-                            $('.modal').modal('hide');
-		                	$('#error').modal('show');
-                        })
-                    }
-                })
+                var name = $('#name').val();
+                var email = $('#email').val();
+                var subject = $('#subject').val();
+                var message = $('#message').val();
+                
+                var formattedMessage = "Name: " + name + "%0a" + "Email: " + email + "%0a" + "Subject: " + subject + "%0a" + "Message: " + message;
+                var whatsappUrl = "https://wa.me/258864321240?text=" + formattedMessage;
+                
+                window.open(whatsappUrl, '_blank');
+                
+                // Optional: Clear form or show success message locally if needed
+                form.reset();
             }
         })
     })
