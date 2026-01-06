@@ -2589,3 +2589,50 @@ i:before {
   text-align: center;
   padding: 20px;
 }
+
+/* Toast Notification */
+#toast-notification {
+    visibility: hidden;
+    min-width: 300px;
+    background: rgba(255, 255, 255, 0.9);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: #333;
+    text-align: center;
+    border-radius: 12px;
+    padding: 24px;
+    position: fixed;
+    z-index: 9999;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    font-size: 16px;
+    font-family: "Roboto", sans-serif;
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+#toast-notification.show {
+    visibility: visible;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+#toast-notification .toast-icon {
+    font-size: 40px;
+    color: #25D366; /* WhatsApp Green */
+    margin-bottom: 10px;
+}
+
+@media (max-width: 767px) {
+    #toast-notification {
+        width: 90%;
+        min-width: auto;
+    }
+}

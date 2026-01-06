@@ -1,5 +1,13 @@
 $(document).ready(function(){
     
+    // Inject Toast HTML
+    $('body').append(`
+        <div id="toast-notification">
+            <i class="fa fa-check-circle toast-icon"></i>
+            <span id="toast-message">Obrigado! Redirecionando para o WhatsApp...</span>
+        </div>
+    `);
+
     (function($) {
         "use strict";
 
@@ -60,13 +68,22 @@ $(document).ready(function(){
                 var subject = $('#subject').val();
                 var message = $('#message').val();
                 
-                var formattedMessage = "Name: " + name + "%0a" + "Email: " + email + "%0a" + "Subject: " + subject + "%0a" + "Message: " + message;
-                var whatsappUrl = "https://wa.me/258864321240?text=" + formattedMessage;
+                // Show Toast
+                var toast = $('#toast-notification');
+                toast.addClass('show');
                 
-                window.open(whatsappUrl, '_blank');
-                
-                // Optional: Clear form or show success message locally if needed
-                form.reset();
+                setTimeout(function() {
+                    var formattedMessage = "Name: " + name + "%0a" + "Email: " + email + "%0a" + "Subject: " + subject + "%0a" + "Message: " + message;
+                    var whatsappUrl = "https://wa.me/258864321240?text=" + formattedMessage;
+                    
+                    window.open(whatsappUrl, '_blank');
+                    
+                    // Reset form and hide toast after delay
+                    form.reset();
+                    setTimeout(function() {
+                        toast.removeClass('show');
+                    }, 3000);
+                }, 1500); // 1.5s delay to let user see the toast
             }
         })
     })
