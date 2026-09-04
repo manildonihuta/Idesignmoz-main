@@ -2,16 +2,160 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { domainOrderSchema, type DomainOrderInput } from "@/lib/schemas";
 
-const extensions = [[".co.mz", "2,500 MT", "2,500 MT", "Negócios locais"], [".com", "1,900 MT", "2,200 MT", "Padrão global"], [".africa", "2,800 MT", "2,800 MT", "Feito para África"], [".tech", "2,400 MT", "2,700 MT", "Tecnologia"], [".shop", "2,100 MT", "2,500 MT", "Lojas online"]];
+const fallbackExtensions: [string, string, string, string][] = [
+  [".co.mz", "2,500 MT", "2,500 MT", "Negócios locais"],
+  [".com", "1,900 MT", "2,200 MT", "Padrão global"],
+  [".africa", "2,800 MT", "2,800 MT", "Feito para África"],
+  [".tech", "2,400 MT", "2,700 MT", "Tecnologia"],
+  [".shop", "2,100 MT", "2,500 MT", "Lojas online"],
+];
+
+const formatMT = (n: number) => `${n.toLocaleString("pt-PT")} MT`;
+
+type CheckResult = {
+  available: boolean;
+  fullDomain: string;
+  name: string;
+  extension: string;
+  status: string;
+  price: number;
+  renewal?: number;
+  error?: string;
+};
 
 export default function DomainsPage() {
   const [domain, setDomain] = useState("");
   const [extension, setExtension] = useState(".co.mz");
-  const [searched, setSearched] = useState(false);
-  function handleSearch(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (domain.trim()) setSearched(true); }
-  const cleanDomain = domain.toLowerCase().replaceAll(" ", "");
-  return <div className="site-shell"><SiteHeader /><main className="inner-page section-wrap"><div className="page-hero page-hero-split"><div><p className="eyebrow"><span className="pulse" /> O seu lugar começa aqui</p><h1>Encontre um nome<br />que vale a pena <em>ter.</em></h1></div><p>Pesquise, registe e gira o seu domínio num só lugar, simples e tranquilo.</p></div><form className="domain-form domain-form-page" onSubmit={handleSearch}><input value={domain} onChange={(event) => { setDomain(event.target.value); setSearched(false); }} aria-label="Nome do domínio" placeholder="oseunegocio" /><select value={extension} onChange={(event) => setExtension(event.target.value)} aria-label="Extensão do domínio"><option>.co.mz</option><option>.com</option><option>.africa</option><option>.tech</option></select><button className="button" type="submit">Pesquisar domínio <span aria-hidden="true">↗</span></button></form>{searched && <div className="domain-result"><span className="result-check">✓</span><span><strong>{cleanDomain}{extension}</strong><small>Disponível para registo</small></span><b>2,500 MT / ano</b><Link href="/contact" className="result-link">Adicionar ao carrinho <span aria-hidden="true">↗</span></Link></div>}<div className="section-kicker table-kicker"><span>01</span><span className="rule" /><span>Preços de domínios</span></div><div className="extension-table"><div className="extension-row extension-head"><span>Extensão</span><span>Registo</span><span>Renovação</span><span>Ideal para</span><span /></div>{extensions.map(([extension, registration, renewal, use]) => <div className="extension-row" key={extension}><strong>{extension}</strong><span>{registration}</span><span>{renewal}</span><span>{use}</span><Link href="/contact">Registar <span aria-hidden="true">↗</span></Link></div>)}</div></main><SiteFooter /></div>;
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<CheckResult | null>(null);
+
+  const [ordering, setOrdering] = useState(false);
+  const [ordered, setOrdered] = useState(false);
+  const [orderError, setOrderError] = useState("");
+
+  const {
+    register: registerOrder,
+    handleSubmit: handleOrderSubmit,
+    formState: { errors: orderErrors },
+  } = useForm<DomainOrderInput>({ resolver: zodResolver(domainOrderSchema) });
+
+  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!domain.trim()) return;
+    setChecking(true);
+    setOrdered(false);
+    setResult(null);
+    setOrderError("");
+    try {
+      const res = await fetch(`/api/domains/check?name=${encodeURIComponent(domain)}&extension=${encodeURIComponent(extension)}`);
+      const data: CheckResult = await res.json();
+      setResult(data);
+    } catch {
+      setResult({ available: false, fullDomain: "", name: domain, extension, status: "error", price: 0, error: "Não foi possível verificar o domínio." });
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function handleOrder(data: DomainOrderInput) {
+    if (!result?.available) return;
+    setOrdering(true);
+    setOrderError("");
+    try {
+      const res = await fetch("/api/domains/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: data.name, email: data.email, fullDomain: result.fullDomain, extension: result.extension, price: result.price }),
+      });
+      const resData = await res.json();
+      if (!res.ok || !resData.ok) {
+        setOrderError(resData.error ?? "Não foi possível registar o pedido.");
+        return;
+      }
+      setOrdered(true);
+    } catch {
+      setOrderError("Não foi possível registar o pedido.");
+    } finally {
+      setOrdering(false);
+    }
+  }
+
+  return (
+    <div className="site-shell">
+      <SiteHeader />
+      <main className="inner-page section-wrap">
+        <div className="page-hero page-hero-split">
+          <div>
+            <p className="eyebrow"><span className="pulse" /> O seu lugar começa aqui</p>
+            <h1>Encontre um nome<br />que vale a pena <em>ter.</em></h1>
+          </div>
+          <p>Pesquise, registe e gira o seu domínio num só lugar, simples e tranquilo.</p>
+        </div>
+
+        <form className="domain-form domain-form-page" onSubmit={handleSearch}>
+          <input value={domain} onChange={(event) => { setDomain(event.target.value); setResult(null); setOrdered(false); }} aria-label="Nome do domínio" placeholder="oseunegocio" />
+          <select value={extension} onChange={(event) => { setExtension(event.target.value); setResult(null); setOrdered(false); }} aria-label="Extensão do domínio">
+            {fallbackExtensions.map(([ext]) => <option key={ext}>{ext}</option>)}
+          </select>
+          <button className="button" type="submit" disabled={checking}>
+            {checking ? "A verificar…" : "Pesquisar domínio"} <span aria-hidden="true">↗</span>
+          </button>
+        </form>
+
+        {result && (
+          result.available ? (
+            ordered ? (
+              <div className="domain-result">
+                <span className="result-check">✓</span>
+                <span><strong>{result.fullDomain}</strong><small>Pedido registado com sucesso</small></span>
+                <b>{formatMT(result.price)} / ano</b>
+                <Link href="/contact" className="result-link">Fale connosco <span aria-hidden="true">↗</span></Link>
+              </div>
+            ) : (
+              <div className="domain-result">
+                <span className="result-check">✓</span>
+                <span><strong>{result.fullDomain}</strong><small>Disponível para registo</small></span>
+                <b>{formatMT(result.price)} / ano</b>
+              </div>
+            )
+          ) : (
+            <div className="domain-result bg-brand/10">
+              <span className="result-check">✕</span>
+              <span><strong>{result.fullDomain || domain}</strong><small>{result.error || "Indisponível para registo"}</small></span>
+            </div>
+          )
+        )}
+
+        {result?.available && !ordered && (
+          <form className="contact-form mt-10" onSubmit={handleOrderSubmit(handleOrder)} noValidate>
+            <label>Nome
+              <input {...registerOrder("name")} placeholder="O seu nome" />
+              {orderErrors.name && <span style={{ color: "#ff5d76", fontSize: 12, display: "block", marginTop: 4 }}>{orderErrors.name.message}</span>}
+            </label>
+            <label>Email profissional
+              <input {...registerOrder("email")} type="email" placeholder="voce@empresa.com" />
+              {orderErrors.email && <span style={{ color: "#ff5d76", fontSize: 12, display: "block", marginTop: 4 }}>{orderErrors.email.message}</span>}
+            </label>
+            {orderError && <p style={{ color: "#ff5d76", fontSize: 13 }}>{orderError}</p>}
+            <button className="button" type="submit" disabled={ordering}>
+              {ordering ? "A registar…" : "Registar domínio"} <span aria-hidden="true">↗</span>
+            </button>
+          </form>
+        )}
+
+        <div className="section-kicker table-kicker"><span>01</span><span className="rule" /><span>Preços de domínios</span></div>
+        <div className="extension-table">
+          <div className="extension-row extension-head"><span>Extensão</span><span>Registo</span><span>Renovação</span><span>Ideal para</span><span /></div>
+          {fallbackExtensions.map(([ext, registration, renewal, use]) => <div className="extension-row" key={ext}><strong>{ext}</strong><span>{registration}</span><span>{renewal}</span><span>{use}</span><button type="button" className="result-link" style={{ background: "none", border: 0, cursor: "pointer" }} onClick={() => { setExtension(ext); setResult(null); setOrdered(false); }}>Pesquisar <span aria-hidden="true">↗</span></button></div>)}
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
+  );
 }

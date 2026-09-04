@@ -18,5 +18,34 @@ const services = [
 ];
 
 export default function ServicesPage() {
-  return <div className="site-shell"><SiteHeader /><main className="inner-page section-wrap"><div className="page-hero"><p className="eyebrow"><span className="pulse" /> A próxima decisão digital</p><h1>Serviços com<br /><em>substância.</em></h1><p>Estratégia, design e tecnologia para empresas a construir o seu próximo capítulo.</p></div><div className="section-kicker"><span>01</span><span className="rule" /><span>Explore o estúdio</span></div><div className="catalog-grid">{services.map(([number, title, text]) => <Link className="catalog-card" href={`/services/${title.toLowerCase().replaceAll(" ", "-")}`} key={number}><span>{number}</span><h2>{title}</h2><p>{text}</p><b>Explorar <span aria-hidden="true">↗</span></b></Link>)}</div></main><SiteFooter /></div>;
+  return (
+    <div className="site-shell">
+      <SiteHeader />
+      <main className="inner-page section-wrap">
+        <div className="page-hero">
+          <p className="eyebrow"><span className="pulse" /> A próxima decisão digital</p>
+          <h1>Serviços com<br /><em>substância.</em></h1>
+          <p>Estratégia, design e tecnologia para empresas a construir o seu próximo capítulo.</p>
+        </div>
+        <div className="section-kicker">
+          <span>01</span><span className="rule" /><span>Explore o estúdio</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-11">
+          {services.map(([number, title, text]) => (
+            <Link
+              className="catalog-card"
+              href={`/services/${title.toLowerCase().replaceAll(" ", "-")}`}
+              key={number}
+            >
+              <span>{number}</span>
+              <h2>{title}</h2>
+              <p>{text}</p>
+              <b>Explorar <span aria-hidden="true">↗</span></b>
+            </Link>
+          ))}
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
+  );
 }

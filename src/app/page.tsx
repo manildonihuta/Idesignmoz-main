@@ -57,7 +57,7 @@ export default function Home() {
             <p className="eyebrow"><span className="pulse" /> Parceiros digitais para negócios ambiciosos</p>
             <h1>Dê sentido ao<br /><em>próximo passo.</em></h1>
             <p className="hero-text">Tudo o que precisa para construir, lançar e fazer crescer a sua presença digital. Estratégia cuidadosa, design marcante e tecnologia que trabalha consigo.</p>
-            <div className="hero-actions">
+            <div className="flex items-center gap-7 mt-8">
               <a className="button" href="#contact">Começar projecto <Arrow /></a>
               <a className="text-link" href="#services">Explorar serviços <Arrow /></a>
             </div>
@@ -122,7 +122,7 @@ export default function Home() {
             <h2>Um parceiro.<br /><em>Mais impulso.</em></h2>
             <p>Do seu primeiro domínio à próxima grande campanha, juntamos pensamento e execução sob o mesmo tecto.</p>
           </div>
-          <div className="service-grid">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {services.map((service, index) => (
               <motion.article
                 className="service-card"
@@ -208,7 +208,7 @@ export default function Home() {
             <h2>Espaço para crescer.<br /><em>Sem surpresas.</em></h2>
             <p>Comece com o que precisa hoje. Faça upgrade quando chegar a altura.</p>
           </div>
-          <div className="pricing-grid">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {hostingPlans.map((plan) => (
               <article className={`price-card ${plan.featured ? "featured" : ""}`} key={plan.name}>
                 {plan.featured && <span className="popular">Mais escolhido</span>}
