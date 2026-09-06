@@ -1,31 +1,45 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
-  DollarSign,
   Monitor,
   ShoppingCart,
   Users,
   ChevronDown,
-  ChevronsRight,
   Bell,
   Settings,
   HelpCircle,
   MessageSquare,
   Globe,
-  TrendingUp,
+  RefreshCw,
   Sun,
   Moon,
 } from "lucide-react";
+import type { AdminMessage, AdminOrder, AdminDomain, AdminProfile, Notice } from "./admin/types";
+import { useAdminData } from "./admin/use-admin-data";
+import {
+  OverviewView,
+  MessagesView,
+  OrdersView,
+  DomainsView,
+  UsersView,
+  SettingsView,
+  HelpView,
+} from "./admin/views";
 
-export type AdminMessage = { name: string; email: string; service: string; message?: string; status: string; created_at: string };
-export type AdminOrder = { full_domain: string; name: string; email: string; price: number | null; status: string; created_at: string };
-export type AdminDomain = { full_domain: string; status: string; price: number | null; checked_at: string };
-export type AdminProfile = { full_name?: string | null; company?: string | null; role: string; id: string };
+/* ----------------------------- Types ------------------------------ */
 
-type ExampleProps = {
+export type AdminMessageRow = AdminMessage;
+export type AdminOrderRow = AdminOrder;
+export type AdminDomainRow = AdminDomain;
+export type AdminProfileRow = AdminProfile;
+
+type DashboardProps = {
   adminEmail?: string;
+  adminUserId?: string;
   messages?: AdminMessage[];
   orders?: AdminOrder[];
   domains?: AdminDomain[];
@@ -33,152 +47,271 @@ type ExampleProps = {
   emailByUserId?: Record<string, string>;
 };
 
+type ViewId = "Dashboard" | "Mensagens" | "Pedidos" | "Domínios" | "Utilizadores" | "Definições" | "Ajuda";
+
 const fmtMT = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
+
+const TITLES: Record<ViewId, { title: string; sub: string }> = {
+  Dashboard: { title: "Painel de administração", sub: "Visão geral da atividade do site." },
+  Mensagens: { title: "Mensagens de contacto", sub: "Trata os contactos recebidos." },
+  Pedidos: { title: "Pedidos de domínio", sub: "Acompanha os pedidos de registo." },
+  Domínios: { title: "Registo de domínios", sub: "Disponibilidade e consultas RDAP." },
+  Utilizadores: { title: "Utilizadores", sub: "Contas e acessos de administração." },
+  Definições: { title: "Definições", sub: "Conta, tema e sessão." },
+  Ajuda: { title: "Ajuda", sub: "Como utilizar o painel." },
+};
 
 export default function DashboardWithCollapsibleSidebar({
   adminEmail,
+  adminUserId,
   messages = [],
   orders = [],
   domains = [],
   profiles = [],
-}: ExampleProps) {
-  // O site é dark por base — iniciamos em modo escuro.
-  const [isDark, setIsDark] = useState(true);
+  emailByUserId = {},
+}: DashboardProps) {
+  const { data, refresh, refreshing, isBusy, actions } = useAdminData({ messages, orders, domains, profiles, emailByUserId });
+  const [active, setActive] = useState<ViewId>("Dashboard");
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const saved = window.localStorage.getItem("admin-theme");
+      return saved ? saved === "dark" : true;
+    } catch {
+      return true;
+    }
+  });
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /* Theme */
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    document.documentElement.classList.toggle("dark", isDark);
+    try {
+      window.localStorage.setItem("admin-theme", isDark ? "dark" : "light");
+    } catch {
+      /* ignore */
     }
   }, [isDark]);
 
-  const newMsgs = messages.filter((m) => m.status === "new").length;
-  const pendingOrders = orders.filter((o) => o.status === "pending").length;
-  const availableDomains = domains.filter((d) => d.status === "available").length;
+  /* Toasts */
+  const notify = useCallback((type: "ok" | "error", text: string) => {
+    setNotice({ type, text });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 3000);
+  }, []);
+
+  const newMsgs = data.messages.filter((m) => m.status === "new").length;
+  const pendingOrders = data.orders.filter((o) => o.status === "pending").length;
+  const availableDomains = data.domains.filter((d) => d.status === "available").length;
+
+  async function onRefresh() {
+    const r = await refresh();
+    notify(r.ok ? "ok" : "error", r.ok ? "Dados atualizados." : (r as { error: string }).error);
+  }
+
+  const nav: NavItem[] = [
+    { id: "Dashboard", label: "Dashboard", Icon: Home },
+    { id: "Mensagens", label: "Mensagens", Icon: MessageSquare, notifs: newMsgs },
+    { id: "Pedidos", label: "Pedidos de domínio", Icon: ShoppingCart, notifs: pendingOrders },
+    { id: "Domínios", label: "Domínios", Icon: Globe, notifs: availableDomains },
+    { id: "Utilizadores", label: "Utilizadores", Icon: Users },
+    { id: "__site", label: "Ver site", Icon: Monitor, href: "/" },
+  ];
+
+  const activeMeta = TITLES[active];
 
   return (
     <div className={`flex min-h-screen w-full font-display-2 ${isDark ? "dark" : ""}`}>
       <div className="flex w-full bg-ink text-paper">
-        <Sidebar
-          newMsgs={newMsgs}
-          pendingOrders={pendingOrders}
-          availableDomains={availableDomains}
-        />
-        <Content
-          isDark={isDark}
-          setIsDark={setIsDark}
-          adminEmail={adminEmail}
-          messages={messages}
-          orders={orders}
-          domains={domains}
-          profiles={profiles}
-        />
+        <Sidebar nav={nav} active={active} onSelect={setActive} />
+
+        <div className="flex min-h-screen flex-1 flex-col overflow-x-hidden bg-ink">
+          <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-line bg-ink px-6 py-3">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={active}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <h1 className="text-[14.4px] font-bold text-paper">{activeMeta.title}</h1>
+                <p className="mt-0.5 text-sm text-muted">{activeMeta.sub}</p>
+              </motion.div>
+            </AnimatePresence>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActive("Mensagens")}
+                className="relative rounded-lg border border-line bg-surface p-2 text-muted transition-colors hover:text-paper"
+                title="Mensagens por tratar"
+              >
+                <Bell className="h-4 w-4" />
+                {newMsgs > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-medium text-white">{newMsgs}</span>}
+              </button>
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="rounded-lg border border-line bg-surface p-2 text-muted transition-colors hover:text-paper disabled:opacity-50"
+                title="Atualizar dados"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDark(!isDark)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-paper"
+                title="Alternar tema"
+              >
+                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              <Link href="/" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-paper">
+                Ver site ↗
+              </Link>
+            </div>
+          </header>
+
+          <main className="flex-1 p-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={active}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {active === "Dashboard" && <OverviewView data={data} go={(v) => setActive(v as ViewId)} />}
+                {active === "Mensagens" && <MessagesView messages={data.messages} actions={actions} isBusy={isBusy} notify={notify} />}
+                {active === "Pedidos" && <OrdersView orders={data.orders} actions={actions} isBusy={isBusy} notify={notify} />}
+                {active === "Domínios" && <DomainsView domains={data.domains} actions={actions} isBusy={isBusy} notify={notify} />}
+                {active === "Utilizadores" && (
+                  <UsersView profiles={data.profiles} emailByUserId={data.emailByUserId} adminUserId={adminUserId} actions={actions} isBusy={isBusy} notify={notify} />
+                )}
+                {active === "Definições" && <SettingsView adminEmail={adminEmail} isDark={isDark} setIsDark={setIsDark} notify={notify} />}
+                {active === "Ajuda" && <HelpView />}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+
+          <AnimatePresence>
+            {notice && (
+              <motion.div
+                key="toast"
+                initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                className={`fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg ${
+                  notice.type === "ok" ? "border-ok bg-surface text-ok" : "border-brand bg-surface text-brand"
+                }`}
+                role="status"
+              >
+                {notice.text}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
 }
 
-type SidebarProps = {
-  newMsgs: number;
-  pendingOrders: number;
-  availableDomains: number;
+/* ----------------------------- Sidebar ----------------------------- */
+
+type NavItem = {
+  id: string;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  href?: string;
+  notifs?: number;
 };
 
-const Sidebar = ({ newMsgs, pendingOrders, availableDomains }: SidebarProps) => {
-  const [open, setOpen] = useState(true);
-  const [selected, setSelected] = useState("Dashboard");
+type SidebarProps = {
+  nav: NavItem[];
+  active: string;
+  onSelect: (v: ViewId) => void;
+};
 
-  const nav = [
-    { Icon: Home, title: "Dashboard" },
-    { Icon: DollarSign, title: "Mensagens", notifs: newMsgs },
-    { Icon: ShoppingCart, title: "Pedidos de domínio", notifs: pendingOrders },
-    { Icon: Globe, title: "Domínios", notifs: availableDomains },
-    { Icon: Users, title: "Utilizadores" },
-    { Icon: Monitor, title: "Ver site", href: "/" },
-  ];
+const Sidebar = ({ nav, active, onSelect }: SidebarProps) => {
+  const [open, setOpen] = useState(true);
 
   return (
-    <nav
-      className={`sticky top-0 h-screen shrink-0 border-r transition-all duration-300 ease-in-out ${
-        open ? "w-64" : "w-16"
-      } border-line bg-surface p-2 shadow-sm`}
+    <motion.nav
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      animate={{ width: open ? 256 : 64 }}
+      transition={{ type: "tween", duration: 0.32, ease: [0.25, 1, 0.5, 1] }}
+      className="sticky top-0 h-screen shrink-0 overflow-hidden border-r border-line bg-surface p-2 shadow-sm"
     >
       <TitleSection open={open} />
 
       <div className="mb-8 space-y-1">
         {nav.map((item) => (
-          <Option
-            key={item.title}
-            Icon={item.Icon}
-            title={item.title}
-            selected={selected}
-            setSelected={setSelected}
-            open={open}
-            notifs={item.notifs}
-            href={item.href}
-          />
+          <Option key={item.id} item={item} active={active} onSelect={onSelect} open={open} />
         ))}
       </div>
 
       {open && (
         <div className="space-y-1 border-t border-line pt-4">
-          <div className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">
-            Conta
-          </div>
-          <Option Icon={Settings} title="Definições" selected={selected} setSelected={setSelected} open={open} />
-          <Option Icon={HelpCircle} title="Ajuda" selected={selected} setSelected={setSelected} open={open} />
+          <div className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">Conta</div>
+          <Option item={{ id: "Definições", label: "Definições", Icon: Settings }} active={active} onSelect={onSelect} open={open} />
+          <Option item={{ id: "Ajuda", label: "Ajuda", Icon: HelpCircle }} active={active} onSelect={onSelect} open={open} />
         </div>
       )}
-
-      <ToggleClose open={open} setOpen={setOpen} />
-    </nav>
+    </motion.nav>
   );
 };
 
-const Option = ({ Icon, title, selected, setSelected, open, notifs, href }: {
-  Icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  selected: string;
-  setSelected: (t: string) => void;
+const Option = ({ item, active, onSelect, open }: {
+  item: NavItem;
+  active: string;
+  onSelect: (v: ViewId) => void;
   open: boolean;
-  notifs?: number;
-  href?: string;
 }) => {
-  const isSelected = selected === title;
-
-  const base = (
-    <button
-      onClick={() => setSelected(title)}
-      className={`relative flex h-11 w-full items-center rounded-md transition-all duration-200 ${
-        isSelected
-          ? "border-l-2 border-brand bg-brand/10 text-paper shadow-sm"
-          : "text-muted hover:bg-surface-2 hover:text-paper"
-      }`}
-    >
+  const isSelected = active === item.id;
+  const inner = (
+    <>
       <div className="grid h-full w-12 place-content-center">
-        <Icon className="h-4 w-4" />
+        <item.Icon className="h-4 w-4" />
       </div>
-
-      {open && (
-        <span className={`text-sm font-medium transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}>
-          {title}
-        </span>
-      )}
-
-      {notifs != null && notifs > 0 && open && (
+      <span className={`text-sm font-medium transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}>
+        {item.label}
+      </span>
+      {item.notifs != null && item.notifs > 0 && open && (
         <span className="absolute right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-xs font-medium text-white">
-          {notifs}
+          {item.notifs}
         </span>
       )}
-    </button>
+    </>
   );
+  const cls = `relative flex h-11 w-full items-center rounded-md transition-all duration-200 ${
+    isSelected
+      ? "border-l-2 border-brand bg-brand/10 text-paper shadow-sm"
+      : "text-muted hover:bg-surface-2 hover:text-paper"
+  }`;
+  const motionProps = {
+    whileHover: { scale: isSelected ? 1 : 1.02 },
+    whileTap: { scale: 0.96 },
+    transition: { type: "spring" as const, stiffness: 500, damping: 30 },
+  };
 
-  if (href) {
-    return <Link href={href} className="block w-full">{base}</Link>;
+  if (item.href) {
+    return (
+      <MotionLink href={item.href} className={`${cls} block`} {...motionProps}>
+        {inner}
+      </MotionLink>
+    );
   }
-  return base;
+  return (
+    <motion.button type="button" onClick={() => onSelect(item.id as ViewId)} className={cls} {...motionProps}>
+      {inner}
+    </motion.button>
+  );
 };
+
+const MotionLink = motion(Link);
 
 const TitleSection = ({ open }: { open: boolean }) => {
   return (
@@ -187,8 +320,8 @@ const TitleSection = ({ open }: { open: boolean }) => {
         <div className="flex items-center gap-3">
           <Logo />
           {open && (
-            <div className={`transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}>
-              <span className="block text-sm font-semibold text-paper">IDesign <b className="text-brand">Admin</b></span>
+            <div className={`transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}>
+              <span className="block text-[8.4px] font-semibold text-paper">IDesign <b className="text-brand">Admin</b></span>
               <span className="block text-xs text-muted">Gestão interna</span>
             </div>
           )}
@@ -201,182 +334,10 @@ const TitleSection = ({ open }: { open: boolean }) => {
 
 const Logo = () => {
   return (
-    <div className="grid size-10 shrink-0 place-content-center rounded-lg bg-gradient-to-br from-brand to-brand-hover shadow-sm">
-      <svg width="20" height="auto" viewBox="0 0 50 39" fill="none" xmlns="http://www.w3.org/2000/svg" className="fill-white">
-        <path d="M16.4992 2H37.5808L22.0816 24.9729H1L16.4992 2Z" />
-        <path d="M17.4224 27.102L11.4192 36H33.5008L49 13.0271H32.7024L23.2064 27.102H17.4224Z" />
-      </svg>
+    <div className="grid size-10 shrink-0 place-content-center overflow-hidden rounded-lg bg-surface-2 shadow-sm">
+      <Image src="/icon.png" alt="IDesign Moz" width={1224} height={1285} />
     </div>
   );
 };
 
-const ToggleClose = ({ open, setOpen }: { open: boolean; setOpen: (v: boolean) => void }) => {
-  return (
-    <button
-      onClick={() => setOpen(!open)}
-      className="absolute bottom-0 left-0 right-0 border-t border-line transition-colors hover:bg-surface-2"
-    >
-      <div className="flex items-center p-3">
-        <div className="grid size-10 place-content-center">
-          <ChevronsRight
-            className={`h-4 w-4 text-muted transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-          />
-        </div>
-        {open && (
-          <span className={`text-sm font-medium text-muted transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}>
-            Recolher
-          </span>
-        )}
-      </div>
-    </button>
-  );
-};
-
-type ContentProps = {
-  isDark: boolean;
-  setIsDark: (v: boolean) => void;
-  adminEmail?: string;
-  messages: AdminMessage[];
-  orders: AdminOrder[];
-  domains: AdminDomain[];
-  profiles: AdminProfile[];
-};
-
-const Content = ({ isDark, setIsDark, adminEmail, messages, orders, domains, profiles }: ContentProps) => {
-  const newMsgs = messages.filter((m) => m.status === "new").length;
-  const pendingOrders = orders.filter((o) => o.status === "pending").length;
-  const availableDomains = domains.filter((d) => d.status === "available").length;
-  const card = "rounded-xl border border-line bg-surface p-6 shadow-sm";
-  const label = "text-sm font-medium text-muted mb-1";
-  const num = "text-2xl font-bold text-paper";
-
-  const activities = messages.slice(0, 6).map((m) => ({
-    icon: MessageSquare,
-    title: m.name || "Mensagem",
-    desc: m.message ?? m.email,
-    time: new Date(m.created_at).toLocaleDateString("pt-PT"),
-    color: m.status === "new" ? "red" : "blue",
-  }));
-
-  return (
-    <div className="flex-1 overflow-auto bg-ink p-6">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-paper">Painel de administração</h1>
-          <p className="mt-1 text-muted">Bem-vindo de volta ao seu dashboard{adminEmail ? `, ${adminEmail}` : ""}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="relative rounded-lg border border-line bg-surface p-2 text-muted transition-colors hover:text-paper">
-            <Bell className="h-5 w-5" />
-            {(newMsgs + pendingOrders) > 0 && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-brand" />}
-          </button>
-          <button
-            onClick={() => setIsDark(!isDark)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface-2 hover:text-paper"
-            aria-label="Alternar tema"
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          <Link href="/" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-paper">
-            Ver site ↗
-          </Link>
-        </div>
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className={card}>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="rounded-lg bg-brand/10 p-2"><MessageSquare className="h-5 w-5 text-brand" /></div>
-            <TrendingUp className="h-4 w-4 text-ok" />
-          </div>
-          <h3 className={label}>Mensagens</h3>
-          <p className={num}>{messages.length}</p>
-          <p className="mt-1 text-sm text-ok">{newMsgs} novas</p>
-        </div>
-
-        <div className={card}>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="rounded-lg bg-brand/10 p-2"><ShoppingCart className="h-5 w-5 text-brand" /></div>
-            <TrendingUp className="h-4 w-4 text-ok" />
-          </div>
-          <h3 className={label}>Pedidos de domínio</h3>
-          <p className={num}>{orders.length}</p>
-          <p className="mt-1 text-sm text-ok">{pendingOrders} pendentes</p>
-        </div>
-
-        <div className={card}>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="rounded-lg bg-brand/10 p-2"><Globe className="h-5 w-5 text-brand" /></div>
-            <TrendingUp className="h-4 w-4 text-ok" />
-          </div>
-          <h3 className={label}>Domínios disponíveis</h3>
-          <p className={num}>{availableDomains}<span className="text-sm text-muted"> / {domains.length}</span></p>
-          <p className="mt-1 text-sm text-muted">no registo</p>
-        </div>
-
-        <div className={card}>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="rounded-lg bg-brand/10 p-2"><Users className="h-5 w-5 text-brand" /></div>
-            <TrendingUp className="h-4 w-4 text-ok" />
-          </div>
-          <h3 className={label}>Utilizadores</h3>
-          <p className={num}>{profiles.length}</p>
-          <p className="mt-1 text-sm text-muted">registados</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <div className={card}>
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-paper">Mensagens de contacto</h3>
-            </div>
-            <div className="space-y-4">
-              {activities.length ? activities.map((activity, i) => (
-                <div key={i} className="flex cursor-pointer items-center space-x-4 rounded-lg p-3 transition-colors hover:bg-surface-2">
-                  <div className={`rounded-lg p-2 ${activity.color === "red" ? "bg-brand/10" : "bg-surface-2"}`}>
-                    <activity.icon className={`h-4 w-4 ${activity.color === "red" ? "text-brand" : "text-muted"}`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-paper">{activity.title}</p>
-                    <p className="truncate text-xs text-muted">{activity.desc} · {activity.time}</p>
-                  </div>
-                </div>
-              )) : <p className="text-sm text-muted">Sem mensagens.</p>}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className={card}>
-            <h3 className="mb-4 text-lg font-semibold text-paper">Pedidos de domínio</h3>
-            <div className="space-y-3">
-              {orders.slice(0, 5).map((o, i) => (
-                <div key={i} className="flex items-center justify-between py-1">
-                  <span className="truncate text-sm text-muted">{o.full_domain}</span>
-                  <span className="text-sm font-medium text-paper">{fmtMT(o.price)}</span>
-                </div>
-              ))}
-              {!orders.length && <p className="text-sm text-muted">Sem pedidos.</p>}
-            </div>
-          </div>
-
-          <div className={card}>
-            <h3 className="mb-4 text-lg font-semibold text-paper">Utilizadores</h3>
-            <div className="space-y-3">
-              {profiles.slice(0, 5).map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-1">
-                  <span className="truncate text-sm text-muted">{p.full_name || "—"}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.role === "admin" ? "bg-brand text-white" : "bg-surface-2 text-muted"}`}>
-                    {p.role}
-                  </span>
-                </div>
-              ))}
-              {!profiles.length && <p className="text-sm text-muted">Sem utilizadores.</p>}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+export { fmtMT };

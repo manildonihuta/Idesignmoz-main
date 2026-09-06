@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import DashboardWithCollapsibleSidebar from "@/components/ui/dashboard-with-collapsible-sidebar";
-import { getAdminContext } from "@/lib/admin";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getAdminContext, fetchAdminDashboard } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,31 +14,17 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const [
-    { data: messages },
-    { data: orders },
-    { data: domains },
-    { data: profiles },
-    { data: authUsers },
-  ] = await Promise.all([
-    supabaseAdmin.from("contact_messages").select("*").order("created_at", { ascending: false }).limit(50),
-    supabaseAdmin.from("domain_orders").select("*").order("created_at", { ascending: false }).limit(50),
-    supabaseAdmin.from("domains").select("*").order("checked_at", { ascending: false }).limit(100),
-    supabaseAdmin.from("profiles").select("*").order("created_at", { ascending: false }).limit(100),
-    supabaseAdmin.auth.admin.listUsers().catch(() => ({ data: { users: [] } })),
-  ]);
-
-  const emailByUserId: Record<string, string> = {};
-  authUsers?.users?.forEach((u) => u.email && (emailByUserId[u.id] = u.email));
+  const data = await fetchAdminDashboard();
 
   return (
     <DashboardWithCollapsibleSidebar
       adminEmail={ctx.email}
-      messages={messages ?? []}
-      orders={orders ?? []}
-      domains={domains ?? []}
-      profiles={profiles ?? []}
-      emailByUserId={emailByUserId}
+      adminUserId={ctx.userId}
+      messages={data.messages}
+      orders={data.orders}
+      domains={data.domains}
+      profiles={data.profiles}
+      emailByUserId={data.emailByUserId}
     />
   );
 }

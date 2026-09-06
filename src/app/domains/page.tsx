@@ -1,19 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { domainOrderSchema, type DomainOrderInput } from "@/lib/schemas";
 
-const fallbackExtensions: [string, string, string, string][] = [
-  [".co.mz", "2,500 MT", "2,500 MT", "Negócios locais"],
-  [".com", "1,900 MT", "2,200 MT", "Padrão global"],
-  [".africa", "2,800 MT", "2,800 MT", "Feito para África"],
-  [".tech", "2,400 MT", "2,700 MT", "Tecnologia"],
-  [".shop", "2,100 MT", "2,500 MT", "Lojas online"],
+type ExtensionRow = {
+  extension: string;
+  registration: number;
+  renewal: number;
+  ideal_for: string;
+};
+
+const fallbackExtensions: ExtensionRow[] = [
+  { extension: ".co.mz", registration: 2500, renewal: 2500, ideal_for: "Negócios locais" },
+  { extension: ".com", registration: 1900, renewal: 2200, ideal_for: "Padrão global" },
+  { extension: ".africa", registration: 2800, renewal: 2800, ideal_for: "Feito para África" },
+  { extension: ".tech", registration: 2400, renewal: 2700, ideal_for: "Tecnologia" },
+  { extension: ".shop", registration: 2100, renewal: 2500, ideal_for: "Lojas online" },
 ];
 
 const formatMT = (n: number) => `${n.toLocaleString("pt-PT")} MT`;
@@ -32,6 +39,8 @@ type CheckResult = {
 export default function DomainsPage() {
   const [domain, setDomain] = useState("");
   const [extension, setExtension] = useState(".co.mz");
+  const [extensions, setExtensions] = useState<ExtensionRow[]>(fallbackExtensions);
+  const [loadingExtensions, setLoadingExtensions] = useState(true);
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<CheckResult | null>(null);
 
@@ -44,6 +53,26 @@ export default function DomainsPage() {
     handleSubmit: handleOrderSubmit,
     formState: { errors: orderErrors },
   } = useForm<DomainOrderInput>({ resolver: zodResolver(domainOrderSchema) });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/domains/extensions")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        if (cancelled || !data?.ok || !Array.isArray(data.extensions) || data.extensions.length === 0) return;
+        setExtensions(data.extensions);
+        setExtension((current) => (data.extensions.some((e: ExtensionRow) => e.extension === current) ? current : data.extensions[0].extension));
+      })
+      .catch(() => {
+        /* keep fallback list */
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingExtensions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,7 +100,7 @@ export default function DomainsPage() {
       const res = await fetch("/api/domains/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: data.name, email: data.email, fullDomain: result.fullDomain, extension: result.extension, price: result.price }),
+        body: JSON.stringify({ name: data.name, email: data.email, fullDomain: result.fullDomain, extension: result.extension }),
       });
       const resData = await res.json();
       if (!res.ok || !resData.ok) {
@@ -84,6 +113,13 @@ export default function DomainsPage() {
     } finally {
       setOrdering(false);
     }
+  }
+
+  function selectExtension(ext: string) {
+    setExtension(ext);
+    setResult(null);
+    setOrdered(false);
+    setOrderError("");
   }
 
   return (
@@ -100,8 +136,8 @@ export default function DomainsPage() {
 
         <form className="domain-form domain-form-page" onSubmit={handleSearch}>
           <input value={domain} onChange={(event) => { setDomain(event.target.value); setResult(null); setOrdered(false); }} aria-label="Nome do domínio" placeholder="oseunegocio" />
-          <select value={extension} onChange={(event) => { setExtension(event.target.value); setResult(null); setOrdered(false); }} aria-label="Extensão do domínio">
-            {fallbackExtensions.map(([ext]) => <option key={ext}>{ext}</option>)}
+          <select value={extension} onChange={(event) => selectExtension(event.target.value)} aria-label="Extensão do domínio">
+            {extensions.map((ext) => <option key={ext.extension}>{ext.extension}</option>)}
           </select>
           <button className="button" type="submit" disabled={checking}>
             {checking ? "A verificar…" : "Pesquisar domínio"} <span aria-hidden="true">↗</span>
@@ -113,7 +149,7 @@ export default function DomainsPage() {
             ordered ? (
               <div className="domain-result">
                 <span className="result-check">✓</span>
-                <span><strong>{result.fullDomain}</strong><small>Pedido registado com sucesso</small></span>
+                <span><strong>{result.fullDomain}</strong><small>Pedido registado com sucesso — a nossa equipa vai contactá-lo em breve.</small></span>
                 <b>{formatMT(result.price)} / ano</b>
                 <Link href="/contact" className="result-link">Fale connosco <span aria-hidden="true">↗</span></Link>
               </div>
@@ -152,7 +188,18 @@ export default function DomainsPage() {
         <div className="section-kicker table-kicker"><span>01</span><span className="rule" /><span>Preços de domínios</span></div>
         <div className="extension-table">
           <div className="extension-row extension-head"><span>Extensão</span><span>Registo</span><span>Renovação</span><span>Ideal para</span><span /></div>
-          {fallbackExtensions.map(([ext, registration, renewal, use]) => <div className="extension-row" key={ext}><strong>{ext}</strong><span>{registration}</span><span>{renewal}</span><span>{use}</span><button type="button" className="result-link" style={{ background: "none", border: 0, cursor: "pointer" }} onClick={() => { setExtension(ext); setResult(null); setOrdered(false); }}>Pesquisar <span aria-hidden="true">↗</span></button></div>)}
+          {extensions.map((ext) =>
+            <div className="extension-row" key={ext.extension}>
+              <strong>{ext.extension}</strong>
+              <span>{formatMT(ext.registration)}</span>
+              <span>{formatMT(ext.renewal)}</span>
+              <span>{ext.ideal_for}</span>
+              <button type="button" className="result-link" style={{ background: "none", border: 0, cursor: "pointer" }} onClick={() => selectExtension(ext.extension)}>Pesquisar <span aria-hidden="true">↗</span></button>
+            </div>
+          )}
+          {!loadingExtensions && extensions === fallbackExtensions && (
+            <div className="extension-row"><span style={{ color: "#8e9088" }}>Preços de referência — confirme connosco os valores actuais.</span></div>
+          )}
         </div>
       </main>
       <SiteFooter />

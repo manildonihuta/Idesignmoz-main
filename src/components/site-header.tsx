@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
@@ -62,7 +63,7 @@ export function SiteHeader({ anchors = false }: SiteHeaderProps) {
 
   return (
     <header className="navbar" aria-label="Navegação principal">
-      <Link className="logo" href={anchors ? "#top" : "/"} aria-label="Página inicial da IDesign Moz"><span>ID</span>ESIGN<span className="logo-accent">.</span></Link>
+      <Link className="logo" href={anchors ? "#top" : "/"} aria-label="Página inicial da IDesign Moz"><Image src="/logo.png" alt="IDesign Moz" width={2065} height={762} loading="eager" /></Link>
       <nav className={`nav-links ${menuOpen ? "nav-open" : ""}`}>
         <Link href={href("/services", "#services")} onClick={close}>Serviços</Link>
         <Link href={href("/hosting", "#hosting")} onClick={close}>Alojamento</Link>

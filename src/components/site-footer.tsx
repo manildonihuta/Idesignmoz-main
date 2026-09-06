@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 interface SiteFooterProps {
@@ -7,7 +8,7 @@ interface SiteFooterProps {
 export function SiteFooter({ anchors = false }: SiteFooterProps) {
   return (
     <footer className="footer section-wrap">
-      <Link className="logo" href={anchors ? "#top" : "/"}><span>ID</span>ESIGN<span className="logo-accent">.</span></Link>
+      <Link className="logo" href={anchors ? "#top" : "/"}><Image src="/logo.png" alt="IDesign Moz" width={2065} height={762} /></Link>
       <p>Soluções digitais para<br />negócios modernos.</p>
       <div className="footer-links">
         <Link href={anchors ? "#services" : "/services"}>Serviços</Link>
