@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum WebsiteStatus {
+  DRAFT
+  PUBLISHED
+  MAINTENANCE
+  ARCHIVED
+}
+
+enum DomainStatus {
+  AVAILABLE
+  REGISTERED
+  ACTIVE
+  EXPIRED
+  TRANSFERRED
+}
+
+enum HostingStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectStatus {
+  PROSPECT
+  PLANNING
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Client {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  fullName     String?
+  phone        String?
+  role         String         @default("client")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  domains      Domain[]
+  websites     Website[]
+  hosting      Hosting[]
+  orders       Order[]
+  invoices     Invoice[]
+  payments     Payment[]
+  tickets      Ticket[]
+  projects     Project[]
+  carts        Cart[]
+  emailAccounts EmailAccount[]
+}
+
+model Domain {
+  id              String       @id @default(cuid())
+  name            String
+  extension       String
+  clientId        String?
+  client          Client?      @relation(fields: [clientId], references: [id])
+  status          DomainStatus @default(AVAILABLE)
+  priceCents      Int          @default(0)
+  renewPriceCents Int          @default(0)
+  registeredAt    DateTime?
+  expiresAt       DateTime?
+  orderId         String?
+  order           Order?       @relation(fields: [orderId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([name, extension])
+}
+
+model HostingPlan {
+  id           String     @id @default(cuid())
+  slug         String     @unique
+  name         String
+  priceCents   Int
+  period       String     @default("month")
+  storage      String
+  websiteLimit Int
+  emailLimit   Int
+  features     String[]
+  featured     Boolean    @default(false)
+  hosting      Hosting[]
+  createdAt    DateTime   @default(now())
+}
+
+model Hosting {
+  id        String       @id @default(cuid())
+  clientId  String?
+  client    Client?      @relation(fields: [clientId], references: [id])
+  planId    String
+  plan      HostingPlan  @relation(fields: [planId], references: [id])
+  status    HostingStatus @default(ACTIVE)
+  domain    String?
+  renewsAt  DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model Website {
+  id          String        @id @default(cuid())
+  clientId    String?
+  client      Client?       @relation(fields: [clientId], references: [id])
+  name        String
+  slug        String        @unique
+  description String?
+  status      WebsiteStatus @default(DRAFT)
+  url         String?
+  projects    Project[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  clientId  String
+  client    Client     @relation(fields: [clientId], references: [id])
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+
+  @@unique([clientId])
+}
+
+model CartItem {
+  id          String   @id @default(cuid())
+  cartId      String
+  cart        Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  kind        String
+  referenceId String
+  label       String
+  priceCents  Int
+  qty         Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  @@index([cartId])
+  @@index([referenceId])
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  number     String      @unique
+  clientId   String?
+  client     Client?     @relation(fields: [clientId], references: [id])
+  status     OrderStatus @default(PENDING)
+  totalCents Int         @default(0)
+  currency   String      @default("MZN")
+  items      OrderItem[]
+  domains    Domain[]
+  invoice    Invoice?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  label      String
+  priceCents Int
+  qty        Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model Invoice {
+  id         String        @id @default(cuid())
+  number     String        @unique
+  orderId    String?       @unique
+  order      Order?        @relation(fields: [orderId], references: [id])
+  clientId   String?
+  client     Client?       @relation(fields: [clientId], references: [id])
+  status     InvoiceStatus @default(DRAFT)
+  totalCents Int           @default(0)
+  dueAt      DateTime?
+  paidAt     DateTime?
+  payments   Payment[]
+  createdAt  DateTime      @default(now())
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?       @relation(fields: [clientId], references: [id])
+  provider    String        @default("mpesa")
+  status      PaymentStatus @default(PENDING)
+  amountCents Int
+  reference   String?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([invoiceId])
+  @@index([clientId])
+}
+
+model Ticket {
+  id        String         @id @default(cuid())
+  number    String         @unique
+  clientId  String?
+  client    Client?        @relation(fields: [clientId], references: [id])
+  subject   String
+  status    TicketStatus   @default(OPEN)
+  priority  TicketPriority @default(MEDIUM)
+  messages  TicketMessage[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model Project {
+  id               String        @id @default(cuid())
+  clientId         String?
+  client           Client?       @relation(fields: [clientId], references: [id])
+  title            String
+  slug             String        @unique
+  description      String?
+  status           ProjectStatus @default(PROSPECT)
+  budgetCents      Int?
+  websiteId        String?
+  website          Website?      @relation(fields: [websiteId], references: [id])
+  tags             String[]
+  coverUrl         String?
+  portfolioVisible Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model EmailAccount {
+  id        String   @id @default(cuid())
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  email     String
+  forwardTo String?
+  quotaMb   Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([email])
+}
+
+model Post {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  excerpt     String?
+  content     String
+  image       String?
+  category    String?
+  tags        String[]
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
