@@ -1,7 +1,16 @@
 export type MessageStatus = "new" | "in_progress" | "done";
 export type OrderStatus = "pending" | "paid" | "registered" | "cancelled";
 export type DomainStatus = "available" | "registered" | "reserved";
-export type UserRole = "client" | "admin";
+export type UserRole =
+  | "super_admin"
+  | "admin"
+  | "manager"
+  | "sales"
+  | "developer"
+  | "designer"
+  | "support"
+  | "customer"
+  | "client";
 
 export type AdminMessage = {
   id: string;
@@ -40,12 +49,34 @@ export type AdminProfile = {
   created_at: string;
 };
 
+export type AdminSubscription = {
+  id: string;
+  customer_id: string | null;
+  customer_email: string | null;
+  customer_name: string | null;
+  kind: string;
+  plan_id: string | null;
+  plan_name: string | null;
+  period: string;
+  price: number;
+  currency: string;
+  status: string;
+  starts_at: string | null;
+  renews_at: string | null;
+  auto_renew: boolean;
+  payment_method: string | null;
+  past_due_since: string | null;
+  suspended_since: string | null;
+  created_at: string;
+};
+
 export type AdminData = {
   messages: AdminMessage[];
   orders: AdminOrder[];
   domains: AdminDomain[];
   profiles: AdminProfile[];
   emailByUserId: Record<string, string>;
+  subscriptions: AdminSubscription[];
 };
 
 export type Notice = { type: "ok" | "error"; text: string };

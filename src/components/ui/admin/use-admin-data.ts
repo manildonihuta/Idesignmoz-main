@@ -12,6 +12,7 @@ export function useAdminData(initial: AdminData) {
     domains: initial.domains,
     profiles: initial.profiles,
     emailByUserId: initial.emailByUserId,
+    subscriptions: initial.subscriptions,
   });
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -104,6 +105,14 @@ export function useAdminData(initial: AdminData) {
       wrap(id, async () => {
         await api.patchUserRole(id, role);
         setData((d) => ({ ...d, profiles: d.profiles.map((p) => (p.id === id ? { ...p, role } : p)) }));
+      }),
+
+    runBillingCheck: () =>
+      wrap("__billing", async () => {
+        const body = await api.runBillingCheck();
+        const dashboard = await api.getDashboard();
+        setData((d) => ({ ...d, subscriptions: dashboard.data.subscriptions }));
+        return { note: `${body.result.checked} verificadas · ${body.result.pastDue} em atraso · ${body.result.suspended} suspensas · ${body.result.terminated} terminadas` };
       }),
   };
 

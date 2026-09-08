@@ -9,8 +9,6 @@ import {
   X,
   Undo2,
   LogOut,
-  ShieldCheck,
-  ShieldPlus,
   Sun,
   Moon,
   TrendingUp,
@@ -21,7 +19,7 @@ import {
 } from "lucide-react";
 import type { AdminData, AdminMessage, AdminOrder, AdminDomain, AdminProfile, Notice, Notify } from "./types";
 import { useAdminData } from "./use-admin-data";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { Spinner as CoreSpinner, Empty as CoreEmpty, Pill as CorePill } from "@/components/ui/core";
 
 type Actions = ReturnType<typeof useAdminData>["actions"];
 
@@ -29,27 +27,30 @@ type Actions = ReturnType<typeof useAdminData>["actions"];
 /* Shared building blocks                                             */
 /* ------------------------------------------------------------------ */
 
-const fmtMT = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
-const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-PT");
-const card = "rounded-xl border border-line bg-surface p-6 shadow-sm";
+export const fmtMT = (n: number | null | undefined) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
+export const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-PT");
+export const card = "rounded-xl border border-line bg-surface p-6 shadow-sm";
 
-function Spinner() {
-  return <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />;
-}
+/* Core kit delegates keeping the local API stable. */
+export const Spinner = CoreSpinner;
+export const Empty = CoreEmpty;
+export const Pill = (props: { children: React.ReactNode; tone?: "brand" | "warn" | "ok" | "muted" | "danger" }) => (
+  <CorePill tone={props.tone ?? "muted"}>{props.children}</CorePill>
+);
 
-function Pill({ children, tone }: { children: React.ReactNode; tone: "brand" | "warn" | "ok" | "muted" }) {
-  const tones = {
-    brand: "bg-brand text-white",
-    warn: "bg-brand/15 text-paper border border-brand/40",
-    ok: "bg-ok/10 text-ok",
-    muted: "bg-surface-2 text-muted",
-  };
+export function SectionHead({ title, desc, right }: { title: string; desc?: string; right?: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="text-[10.8px] font-semibold text-paper">{title}</h2>
+        {desc && <p className="mt-0.5 text-sm text-muted">{desc}</p>}
+      </div>
+      {right}
+    </div>
   );
 }
 
-function ActionBtn({
+export function ActionBtn({
   onClick,
   busy,
   disabled,
@@ -86,7 +87,7 @@ function ActionBtn({
   );
 }
 
-function IconBtn({
+export function IconBtn({
   onClick,
   busy,
   title,
@@ -110,22 +111,6 @@ function IconBtn({
     >
       {busy ? <Spinner /> : children}
     </motion.button>
-  );
-}
-
-function Empty({ text }: { text: string }) {
-  return <p className="py-10 text-center text-sm text-muted">{text}</p>;
-}
-
-function SectionHead({ title, desc, right }: { title: string; desc?: string; right?: React.ReactNode }) {
-  return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h2 className="text-[10.8px] font-semibold text-paper">{title}</h2>
-        {desc && <p className="mt-0.5 text-sm text-muted">{desc}</p>}
-      </div>
-      {right}
-    </div>
   );
 }
 
@@ -520,13 +505,36 @@ export function UsersView({ profiles, emailByUserId, adminUserId, actions, isBus
   isBusy: (id: string) => boolean;
   notify: Notify;
 }) {
-  const admins = profiles.filter((p) => p.role === "admin").length;
+  const admins = profiles.filter((p) => p.role === "admin" || p.role === "super_admin").length;
+
+  const roleOptions: Array<{ value: AdminProfile["role"]; label: string }> = [
+    { value: "super_admin", label: "Super Admin" },
+    { value: "admin", label: "Admin" },
+    { value: "manager", label: "Manager" },
+    { value: "sales", label: "Sales" },
+    { value: "developer", label: "Developer" },
+    { value: "designer", label: "Designer" },
+    { value: "support", label: "Support" },
+    { value: "customer", label: "Customer" },
+    { value: "client", label: "Cliente (legado)" },
+  ];
+  const roleTone: Record<AdminProfile["role"], "brand" | "warn" | "ok" | "muted"> = {
+    super_admin: "brand",
+    admin: "brand",
+    manager: "ok",
+    sales: "ok",
+    developer: "warn",
+    designer: "warn",
+    support: "warn",
+    customer: "muted",
+    client: "muted",
+  };
 
   return (
     <div className={card}>
       <SectionHead
         title="Utilizadores"
-        desc={`${profiles.length} registados · ${admins} administradores`}
+        desc={`${profiles.length} registados · ${admins} com acesso administrativo`}
       />
       {profiles.length === 0 ? (
         <Empty text="Sem utilizadores registados." />
@@ -548,18 +556,32 @@ export function UsersView({ profiles, emailByUserId, adminUserId, actions, isBus
                   </p>
                   <p className="truncate text-xs text-muted">{emailByUserId[p.id] || ""}{p.company ? ` · ${p.company}` : ""}</p>
                 </div>
-                <Pill tone={p.role === "admin" ? "brand" : "muted"}>{p.role}</Pill>
-                <div className="flex items-center gap-1.5">
-                  {p.role === "client" ? (
-                    <ActionBtn tone="brand" busy={isBusy(p.id)} onClick={() => actions.setUserRole(p.id, "admin").then((r) => notify(r.ok ? "ok" : "error", r.ok ? `${p.full_name || "Utilizador"} passou a administrador.` : (r as { error: string }).error))}>
-                      <ShieldPlus className="h-3.5 w-3.5" /> Tornar admin
-                    </ActionBtn>
-                  ) : (
-                    <ActionBtn tone="danger" busy={isBusy(p.id)} disabled={isSelf} title={isSelf ? "Não podes remover o teu próprio acesso" : undefined} onClick={() => { if (window.confirm(`Remover o acesso de administrador de ${p.full_name || "este utilizador"}?`)) actions.setUserRole(p.id, "client").then((r) => notify(r.ok ? "ok" : "error", r.ok ? "Acesso de administrador removido." : (r as { error: string }).error)); }}>
-                      <ShieldCheck className="h-3.5 w-3.5" /> Remover admin
-                    </ActionBtn>
-                  )}
-                </div>
+                <Pill tone={roleTone[p.role] ?? "muted"}>{p.role}</Pill>
+                <label className="sr-only" htmlFor={`role-${p.id}`}>Função de {p.full_name || p.id}</label>
+                <select
+                  id={`role-${p.id}`}
+                  value={p.role}
+                  disabled={isBusy(p.id) || (isSelf && p.role !== "super_admin")}
+                  onChange={(e) => {
+                    const next = e.target.value as AdminProfile["role"];
+                    if (next === p.role) return;
+                    const label = roleOptions.find((o) => o.value === next)?.label ?? next;
+                    if (isSelf) {
+                      if (!window.confirm("Vais alterar o teu próprio acesso. Confirma?")) {
+                        e.target.value = p.role;
+                        return;
+                      }
+                    }
+                    actions.setUserRole(p.id, next).then((r) =>
+                      notify(r.ok ? "ok" : "error", r.ok ? `${p.full_name || "Utilizador"} → ${label}` : (r as { error: string }).error),
+                    );
+                  }}
+                  className="rounded-md border border-line bg-surface-2 px-2 py-1.5 text-sm text-paper disabled:opacity-50"
+                >
+                  {roleOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </motion.div>
             );
           })}
@@ -586,7 +608,8 @@ export function SettingsView({ adminEmail, isDark, setIsDark, notify }: {
     if (!window.confirm("Terminar a sessão do painel de administração?")) return;
     setLogouting(true);
     try {
-      await supabaseBrowser.auth.signOut();
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      if (!res.ok) throw new Error();
       router.replace("/login");
     } catch {
       setLogouting(false);

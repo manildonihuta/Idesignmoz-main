@@ -2,12 +2,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Home,
   Monitor,
   ShoppingCart,
-  Users,
   ChevronDown,
   Bell,
   Settings,
@@ -17,8 +16,19 @@ import {
   RefreshCw,
   Sun,
   Moon,
+  Users2,
+  Boxes,
+  Network,
+  ServerCog,
+  Rocket,
+  FileKey2,
+  HeartHandshake,
+  FileSignature,
+  ChartColumn,
+  UserRound,
+  Repeat,
 } from "lucide-react";
-import type { AdminMessage, AdminOrder, AdminDomain, AdminProfile, Notice } from "./admin/types";
+import type { AdminMessage, AdminOrder, AdminDomain, AdminProfile, AdminSubscription, Notice } from "./admin/types";
 import { useAdminData } from "./admin/use-admin-data";
 import {
   OverviewView,
@@ -29,6 +39,20 @@ import {
   SettingsView,
   HelpView,
 } from "./admin/views";
+import {
+  CustomersView,
+  ProductsView,
+  DomainsAdminView,
+  HostingAdminView,
+  ProvisioningView,
+} from "./admin/manage-views";
+import { CrmView } from "./admin/crm-views";
+import { ProposalsSystemView } from "./admin/proposals-system-view";
+import { AnalyticsView } from "./admin/analytics-view";
+import { SiteSettingsView } from "./admin/settings-views";
+import { SubscriptionsAdminView } from "./admin/subscriptions-admin-view";
+import type { CompanyInfo } from "@/lib/site-settings";
+import type { ProposalServiceItem } from "@/lib/proposals";
 
 /* ----------------------------- Types ------------------------------ */
 
@@ -45,18 +69,30 @@ type DashboardProps = {
   domains?: AdminDomain[];
   profiles?: AdminProfile[];
   emailByUserId?: Record<string, string>;
+  subscriptions?: AdminSubscription[];
+  company: CompanyInfo;
+  proposalCatalog?: ProposalServiceItem[];
 };
 
-type ViewId = "Dashboard" | "Mensagens" | "Pedidos" | "Domínios" | "Utilizadores" | "Definições" | "Ajuda";
+type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "Domínio Admin" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Subscrições" | "Provisioning" | "Definições" | "Ajuda";
 
 const fmtMT = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
 
 const TITLES: Record<ViewId, { title: string; sub: string }> = {
   Dashboard: { title: "Painel de administração", sub: "Visão geral da atividade do site." },
+  Analytics: { title: "Analytics", sub: "Tráfego, receita e funil de conversão." },
   Mensagens: { title: "Mensagens de contacto", sub: "Trata os contactos recebidos." },
   Pedidos: { title: "Pedidos de domínio", sub: "Acompanha os pedidos de registo." },
   Domínios: { title: "Registo de domínios", sub: "Disponibilidade e consultas RDAP." },
+  "Domínio Admin": { title: "Domínio Admin", sub: "Preços, registo, suspensão e renovação." },
+  CRM: { title: "CRM interno", sub: "Leads, oportunidades, propostas, projetos e relação com clientes." },
+  Propostas: { title: "Propostas", sub: "Cria, envia e acompanha propostas comerciais." },
   Utilizadores: { title: "Utilizadores", sub: "Contas e acessos de administração." },
+  Clientes: { title: "Gestão de clientes", sub: "Cria, edita, suspende e consulta clientes." },
+  Produtos: { title: "Produtos e preços", sub: "Catálogo, planos, categorias e cupões." },
+  Alojamento: { title: "Planos de alojamento", sub: "Recursos, preços, ciclo, servidor e estado." },
+  Subscrições: { title: "Subscrições", sub: "Estado, ciclo de faturação e vida útil das subscrições." },
+  Provisioning: { title: "Provisioning", sub: "Ativação de alojamento e de domínios (WHM/cPanel, Plesk, VPS, registradores)." },
   Definições: { title: "Definições", sub: "Conta, tema e sessão." },
   Ajuda: { title: "Ajuda", sub: "Como utilizar o painel." },
 };
@@ -69,9 +105,13 @@ export default function DashboardWithCollapsibleSidebar({
   domains = [],
   profiles = [],
   emailByUserId = {},
+  subscriptions = [],
+  company,
+  proposalCatalog = [],
 }: DashboardProps) {
-  const { data, refresh, refreshing, isBusy, actions } = useAdminData({ messages, orders, domains, profiles, emailByUserId });
+  const { data, refresh, refreshing, isBusy, actions } = useAdminData({ messages, orders, domains, profiles, emailByUserId, subscriptions });
   const [active, setActive] = useState<ViewId>("Dashboard");
+  const reduced = useReducedMotion();
   const [isDark, setIsDark] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -104,6 +144,7 @@ export default function DashboardWithCollapsibleSidebar({
   const newMsgs = data.messages.filter((m) => m.status === "new").length;
   const pendingOrders = data.orders.filter((o) => o.status === "pending").length;
   const availableDomains = data.domains.filter((d) => d.status === "available").length;
+  const nonActiveSubs = data.subscriptions.filter((s) => s.status === "past_due" || s.status === "suspended").length;
 
   async function onRefresh() {
     const r = await refresh();
@@ -112,10 +153,19 @@ export default function DashboardWithCollapsibleSidebar({
 
   const nav: NavItem[] = [
     { id: "Dashboard", label: "Dashboard", Icon: Home },
+    { id: "Analytics", label: "Analytics", Icon: ChartColumn },
+    { id: "Clientes", label: "Clientes", Icon: Users2 },
+    { id: "Produtos", label: "Produtos", Icon: Boxes },
+    { id: "CRM", label: "CRM", Icon: HeartHandshake },
+    { id: "Propostas", label: "Propostas", Icon: FileSignature },
+    { id: "Domínio Admin", label: "Domínio Admin", Icon: FileKey2 },
+    { id: "Domínios", label: "Domínios", Icon: Globe, notifs: availableDomains },
+    { id: "Alojamento", label: "Alojamento", Icon: ServerCog },
+    { id: "Subscrições", label: "Subscrições", Icon: Repeat, notifs: nonActiveSubs },
+    { id: "Provisioning", label: "Provisioning", Icon: Rocket },
     { id: "Mensagens", label: "Mensagens", Icon: MessageSquare, notifs: newMsgs },
     { id: "Pedidos", label: "Pedidos de domínio", Icon: ShoppingCart, notifs: pendingOrders },
-    { id: "Domínios", label: "Domínios", Icon: Globe, notifs: availableDomains },
-    { id: "Utilizadores", label: "Utilizadores", Icon: Users },
+    { id: "Utilizadores", label: "Utilizadores", Icon: Network },
     { id: "__site", label: "Ver site", Icon: Monitor, href: "/" },
   ];
 
@@ -126,7 +176,7 @@ export default function DashboardWithCollapsibleSidebar({
       <div className="flex w-full bg-ink text-paper">
         <Sidebar nav={nav} active={active} onSelect={setActive} />
 
-        <div className="flex min-h-screen flex-1 flex-col overflow-x-hidden bg-ink">
+        <div className="flex min-h-screen flex-1 flex-col overflow-x-hidden bg-ink pb-20 md:pb-0">
           <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-line bg-ink px-6 py-3">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -134,22 +184,14 @@ export default function DashboardWithCollapsibleSidebar({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
+                transition={{ duration: reduced ? 0 : 0.18, ease: "easeOut" }}
               >
                 <h1 className="text-[14.4px] font-bold text-paper">{activeMeta.title}</h1>
                 <p className="mt-0.5 text-sm text-muted">{activeMeta.sub}</p>
               </motion.div>
             </AnimatePresence>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActive("Mensagens")}
-                className="relative rounded-lg border border-line bg-surface p-2 text-muted transition-colors hover:text-paper"
-                title="Mensagens por tratar"
-              >
-                <Bell className="h-4 w-4" />
-                {newMsgs > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-medium text-white">{newMsgs}</span>}
-              </button>
+              <NotificationsBell />
               <button
                 type="button"
                 onClick={onRefresh}
@@ -173,7 +215,7 @@ export default function DashboardWithCollapsibleSidebar({
             </div>
           </header>
 
-          <main className="flex-1 p-6">
+          <main id="main" className="flex-1 p-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={active}
@@ -183,13 +225,33 @@ export default function DashboardWithCollapsibleSidebar({
                 transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 {active === "Dashboard" && <OverviewView data={data} go={(v) => setActive(v as ViewId)} />}
+                {active === "Analytics" && <AnalyticsView />}
                 {active === "Mensagens" && <MessagesView messages={data.messages} actions={actions} isBusy={isBusy} notify={notify} />}
                 {active === "Pedidos" && <OrdersView orders={data.orders} actions={actions} isBusy={isBusy} notify={notify} />}
                 {active === "Domínios" && <DomainsView domains={data.domains} actions={actions} isBusy={isBusy} notify={notify} />}
                 {active === "Utilizadores" && (
                   <UsersView profiles={data.profiles} emailByUserId={data.emailByUserId} adminUserId={adminUserId} actions={actions} isBusy={isBusy} notify={notify} />
                 )}
-                {active === "Definições" && <SettingsView adminEmail={adminEmail} isDark={isDark} setIsDark={setIsDark} notify={notify} />}
+                {active === "Clientes" && <CustomersView notify={notify} />}
+                {active === "Produtos" && <ProductsView notify={notify} />}
+                {active === "CRM" && <CrmView notify={notify} />}
+                {active === "Propostas" && <ProposalsSystemView notify={notify} company={company} catalog={proposalCatalog} />}
+                {active === "Domínio Admin" && <DomainsAdminView notify={notify} />}
+                {active === "Alojamento" && <HostingAdminView notify={notify} />}
+                {active === "Subscrições" && (
+                  <SubscriptionsAdminView subscriptions={data.subscriptions} actions={actions} isBusy={isBusy} notify={notify} />
+                )}
+                {active === "Provisioning" && <ProvisioningView notify={notify} />}
+                {active === "Definições" && (
+                  <div className="flex flex-col gap-8">
+                    <SettingsView adminEmail={adminEmail} isDark={isDark} setIsDark={setIsDark} notify={notify} />
+                    <div className="mb-1 border-t border-line pt-6">
+                      <h3 className="mb-1 text-sm font-semibold text-brand">Definições do site</h3>
+                      <p className="mb-4 text-xs text-muted">Marca, impostos, pagamentos, e-mail, domínios e integrações da plataforma.</p>
+                      <SiteSettingsView notify={notify} />
+                    </div>
+                  </div>
+                )}
                 {active === "Ajuda" && <HelpView />}
               </motion.div>
             </AnimatePresence>
@@ -203,7 +265,7 @@ export default function DashboardWithCollapsibleSidebar({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 12, scale: 0.97 }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                className={`fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg ${
+                className={`fixed bottom-20 right-4 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg md:bottom-4 ${
                   notice.type === "ok" ? "border-ok bg-surface text-ok" : "border-brand bg-surface text-brand"
                 }`}
                 role="status"
@@ -214,6 +276,208 @@ export default function DashboardWithCollapsibleSidebar({
           </AnimatePresence>
         </div>
       </div>
+
+      <BottomNav active={active} onSelect={setActive} />
+    </div>
+  );
+}
+
+/* ----------------------------- Bottom navigation (mobile) ----------------------------- */
+
+const BOTTOM_NAV: Array<{ id: ViewId; label: string; Icon: React.ComponentType<{ className?: string }> }> = [
+  { id: "Dashboard", label: "Home", Icon: Home },
+  { id: "Produtos", label: "Products", Icon: Boxes },
+  { id: "Pedidos", label: "Orders", Icon: ShoppingCart },
+  { id: "Ajuda", label: "Support", Icon: HelpCircle },
+  { id: "Definições", label: "Profile", Icon: UserRound },
+];
+
+const BottomNav = ({ active, onSelect }: { active: ViewId; onSelect: (v: ViewId) => void }) => (
+  <nav
+    className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line bg-surface px-2 pb-[env(safe-area-inset-bottom)] md:hidden"
+    aria-label="Navegação rápida"
+  >
+    {BOTTOM_NAV.map((item) => {
+      const isActive = active === item.id;
+      return (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onSelect(item.id)}
+          aria-current={isActive ? "page" : undefined}
+          className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${
+            isActive ? "text-brand" : "text-muted hover:text-paper"
+          }`}
+        >
+          <item.Icon className="h-5 w-5" />
+          {item.label}
+        </button>
+      );
+    })}
+  </nav>
+);
+
+/* ----------------------------- Notifications bell ----------------------------- */
+
+type NotifItem = {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
+const fmtWhen = (iso: string) => {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "agora";
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} d`;
+  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" });
+};
+
+async function fetchNotifItems(): Promise<NotifItem[] | null> {
+  try {
+    const res = await fetch("/api/notifications", { headers: { Accept: "application/json" } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ok?: boolean; items?: NotifItem[] };
+    return data.ok ? (data.items ?? []) : null;
+  } catch {
+    return null;
+  }
+}
+
+function NotificationsBell() {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<NotifItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadInitial() {
+      const loaded = await fetchNotifItems();
+      if (!active) return;
+      setItems(loaded ?? []);
+      setLoading(false);
+    }
+
+    loadInitial();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    async function poll() {
+      const loaded = await fetchNotifItems();
+      if (loaded) setItems(loaded);
+    }
+    const timer = setInterval(() => void poll(), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const unread = items.filter((i) => !i.readAt).length;
+
+  async function markRead(id?: string) {
+    try {
+      await fetch("/api/notifications/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: id ? JSON.stringify({ id }) : "{}",
+      });
+    } catch {
+      /* ignore */
+    } finally {
+      const loaded = await fetchNotifItems();
+      if (loaded) setItems(loaded);
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="relative rounded-lg border border-line bg-surface p-2 text-muted transition-colors hover:text-paper"
+        title="Notificações"
+        aria-label="Notificações"
+      >
+        <Bell className="h-4 w-4" />
+        {unread > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-medium text-white">
+            {unread}
+          </span>
+        )}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-lg border border-line bg-surface shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-line px-3 py-2">
+              <span className="text-sm font-semibold text-paper">Notificações</span>
+              {unread > 0 && (
+                <button type="button" onClick={() => void markRead()} className="text-xs text-brand hover:underline">
+                  Marcar todas como lidas
+                </button>
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {loading ? (
+                <p className="px-3 py-4 text-center text-sm text-muted">A carregar…</p>
+              ) : items.length === 0 ? (
+                <p className="px-3 py-4 text-center text-sm text-muted">Sem notificações.</p>
+              ) : (
+                items.map((item) => (
+                  <div key={item.id} className={`border-b border-line/60 px-3 py-2.5 ${item.readAt ? "opacity-60" : ""}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-paper">{item.title}</p>
+                      <span className="shrink-0 text-[10px] text-muted">{fmtWhen(item.createdAt)}</span>
+                    </div>
+                    {item.body && <p className="mt-0.5 text-xs text-muted">{item.body}</p>}
+                    {!item.readAt && (
+                      <button
+                        type="button"
+                        onClick={() => void markRead(item.id)}
+                        className="mt-1.5 text-xs text-brand hover:underline"
+                      >
+                        Marcar como lida
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -236,13 +500,22 @@ type SidebarProps = {
 
 const Sidebar = ({ nav, active, onSelect }: SidebarProps) => {
   const [open, setOpen] = useState(true);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setOpen(!mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   return (
     <motion.nav
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       animate={{ width: open ? 256 : 64 }}
-      transition={{ type: "tween", duration: 0.32, ease: [0.25, 1, 0.5, 1] }}
+      transition={{ type: "tween", duration: reduced ? 0 : 0.32, ease: [0.25, 1, 0.5, 1] }}
       className="sticky top-0 h-screen shrink-0 overflow-hidden border-r border-line bg-surface p-2 shadow-sm"
     >
       <TitleSection open={open} />

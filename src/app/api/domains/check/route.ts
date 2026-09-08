@@ -1,24 +1,35 @@
 import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkDomainAvailability } from "@/lib/domain-provider";
+import { domainCheckQuerySchema } from "@/lib/schemas";
+import { applyRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
+import { serverLogError } from "@/lib/server-log";
 
 export const dynamic = "force-dynamic";
 
-function sanitizeName(raw: string): string | null {
-  const name = raw.toLowerCase().replace(/\s+/g, "").trim();
-  if (!name || name.length < 2 || name.length > 63) return null;
-  if (!/^[a-z0-9-]+$/.test(name)) return null;
-  if (name.startsWith("-") || name.endsWith("-")) return null;
-  return name;
-}
-
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const nameRaw = searchParams.get("name") ?? "";
-  const extension = searchParams.get("extension") ?? "";
+  const limited = await applyRateLimit(request, {
+    prefix: "domain-check",
+    limit: 90,
+    windowSec: 60,
+  });
+  if (!limited.ok) return rateLimitResponse(limited.retryAfterSec);
 
-  const name = sanitizeName(nameRaw);
-  if (!name) {
+  const searchParams = request.nextUrl.searchParams;
+  const parsed = domainCheckQuerySchema.safeParse({
+    name: searchParams.get("name") ?? "",
+    extension: searchParams.get("extension") ?? "",
+  });
+  if (!parsed.success) {
+    return Response.json(
+      { available: false, error: "Nome de domínio inválido. Use apenas letras, números e hífens." },
+      { status: 400 }
+    );
+  }
+
+  const { name: rawName, extension } = parsed.data;
+  const name = rawName.toLowerCase().replace(/\s+/g, "");
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name) || name.length < 2) {
     return Response.json(
       { available: false, error: "Nome de domínio inválido. Use apenas letras, números e hífens." },
       { status: 400 }
@@ -92,6 +103,7 @@ export async function GET(request: NextRequest) {
     .single();
 
   if (lookupError) {
+    serverLogError("api:domains/check", lookupError);
     return Response.json({ available: false, error: "Erro ao registar a consulta." }, { status: 500 });
   }
 

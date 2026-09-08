@@ -1,15 +1,45 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import PortfolioGrid from "./portfolio-grid";
+import { JsonLd } from "@/components/json-ld";
+import { getProjects } from "@/lib/content";
+import { absoluteUrl } from "@/lib/site";
+import { breadcrumbSchema, itemListSchema, seo } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = seo({
   title: "Portfólio — IDesign Moz",
-  description: "Projectos seleccionados de websites, marcas e comércio electrónico feitos em Moçambique para o mundo.",
-};
+  description: "Projectos seleccionados de websites, marcas, apps e comércio electrónico feitos em Moçambique para o mundo.",
+  path: "/portfolio",
+  keywords: ["portfólio", "casos de estudo", "websites", "projetos"],
+});
 
-const work = [{ title: "Castel Branco", type: "Hotelaria", year: "2024", className: "coastal" }, { title: "Kaya", type: "Cultura e comércio", year: "2023", className: "editorial" }, { title: "Numa", type: "Tecnologia", year: "2024", className: "numa" }];
+export default async function PortfolioPage() {
+  const projects = await getProjects();
+  const jsonLd = [
+    itemListSchema(
+      projects.map((project) => ({
+        name: `${project.client} — ${project.summary}`,
+        url: absoluteUrl(`/portfolio/${project.slug}`),
+      })),
+      {
+        name: "Portfólio IDesign Moz",
+        description: "Projectos seleccionados de websites, marcas, apps e comércio electrónico.",
+        url: absoluteUrl("/portfolio"),
+      },
+    ),
+    breadcrumbSchema([
+      { name: "Início", path: "/" },
+      { name: "Portfólio", path: "/portfolio" },
+    ]),
+  ]
 
-export default function PortfolioPage() {
-  return <div className="site-shell"><SiteHeader /><main className="inner-page section-wrap"><div className="page-hero"><p className="eyebrow"><span className="pulse" /> Trabalhos seleccionados</p><h1>Bom trabalho<br />vai <em>longe.</em></h1><p>Projectos para pessoas e empresas a deixar a sua marca, de Moçambique para o mundo.</p></div><div className="filter-row"><span>Todos os trabalhos</span><Link href="/portfolio">Todos</Link><Link href="/portfolio">Websites</Link><Link href="/portfolio">Marcas</Link><Link href="/portfolio">Comércio electrónico</Link></div><div className="portfolio-grid">{work.map((item) => <article className="portfolio-item" key={item.title}><div className={`portfolio-art ${item.className}`}><span>{item.year}</span>{item.className === "editorial" && <b>Kaya</b>}{item.className === "numa" && <b>Numa<br /><i>systems</i></b>}</div><div className="portfolio-meta"><div><h2>{item.title}</h2><p>{item.type}</p></div><Link href="/contact" aria-label={`Ver projecto ${item.title}`}>↗</Link></div></article>)}</div></main><SiteFooter /></div>;
+  return (
+    <div className="site-shell">
+      <SiteHeader />
+      <PortfolioGrid projects={projects} />
+      <SiteFooter />
+      <JsonLd data={jsonLd} />
+    </div>
+  );
 }

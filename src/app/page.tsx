@@ -1,250 +1,367 @@
-"use client";
-
-import { FormEvent, useState } from "react";
-import { motion } from "framer-motion";
-import { Autoplay, A11y } from "swiper/modules";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { SiteHeader } from "@/components/site-header";
+import type { Metadata } from "next";
+import Link from "next/link";
+import DomainSearch from "@/components/domain-search";
+import { JsonLd } from "@/components/json-ld";
 import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { PricingCard, TestimonialCard } from "@/components/ui/core";
+import {
+  getHostingPlans,
+  getProjects,
+  getTestimonials,
+} from "@/lib/content";
+import { localBusinessSchema, seo } from "@/lib/seo";
+import { getSiteSettings } from "@/lib/site-settings";
+import { formatMZN } from "@/lib/currency";
+import { FUTURE_FEATURES, type FutureFeature } from "@/lib/platform-futures";
 
-const services = [
-  { number: "01", title: "Websites que fazem crescer", text: "Experiências digitais rápidas e pensadas para a forma como os seus clientes decidem.", tag: "Design web" },
-  { number: "02", title: "Uma marca memorável", text: "Sistemas de identidade com clareza e personalidade para se destacar no mercado.", tag: "Identidade" },
-  { number: "03", title: "Crescimento com propósito", text: "Pesquisa, redes sociais e conteúdo que transformam atenção numa carteira mais saudável.", tag: "Marketing" },
-];
+export const dynamic = "force-dynamic";
 
-const hostingPlans = [
-  { name: "Starter", price: "499", detail: "Para o seu primeiro espaço online", features: ["10 GB de armazenamento SSD", "1 website", "5 contas de email"] },
-  { name: "Business", price: "999", detail: "Para equipas prontas para crescer", features: ["30 GB de armazenamento NVMe", "10 websites", "Suporte prioritário"], featured: true },
-  { name: "Pro", price: "1,999", detail: "Para operações digitais ambiciosas", features: ["100 GB de armazenamento NVMe", "Websites ilimitados", "Backup avançado"] },
-];
+export const metadata: Metadata = seo({
+  title: "IDesign Moz — Build your digital presence",
+  description:
+    "Pesquise o seu domínio, escolha alojamento, compre serviços e gerencie tudo numa única plataforma SaaS com suporte local em Maputo.",
+  path: "/",
+  keywords: ["plataforma digital", "SaaS", "domínio", "alojamento", "criar presença online", "Moçambique"],
+});
 
 function Arrow() {
   return <span aria-hidden="true">↗</span>;
 }
 
-const heroCopy = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0 },
+const funnelSteps = [
+  {
+    n: "01",
+    title: "Search Domain",
+    text: "Encontre o endereço perfeito com preços reais por extensão.",
+    href: "/domains/search",
+    cta: "Procurar domínio",
+  },
+  {
+    n: "02",
+    title: "Choose Hosting",
+    text: "Planos simples, SSL e backups diários para o seu espaço na web.",
+    href: "/hosting",
+    cta: "Ver planos",
+  },
+  {
+    n: "03",
+    title: "Buy Services",
+    text: "Websites, branding, email e loja online prontos a comprar.",
+    href: "/services",
+    cta: "Explorar serviços",
+  },
+  {
+    n: "04",
+    title: "Manage Everything",
+    text: "Um painel para domínios, alojamento, projetos e faturação.",
+    href: "/dashboard",
+    cta: "Abrir painel",
+  },
+];
+
+const stageTitles: Record<FutureFeature["area"], string> = {
+  commerce: "Venda & reseller",
+  creators: "Para criadores",
+  intelligence: "Inteligência",
+  operations: "Operações",
 };
 
-const heroArt = {
-  hidden: { opacity: 0, scale: 0.94 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.8 } },
-};
+function PlatformCard({ feature }: { feature: FutureFeature }) {
+  const live = feature.status === "live" || feature.status === "beta";
+  return (
+    <Link
+      href={feature.href}
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-6 transition-all hover:-translate-y-1 hover:border-brand"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-lg leading-tight tracking-tight text-paper">{feature.name}</h3>
+        {live ? (
+          <span className="rounded-full bg-brand/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-brand">
+            {feature.status === "live" ? "Disponível" : "Beta"}
+          </span>
+        ) : (
+          <span className="rounded-full border border-line px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-muted">
+            Em breve
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-muted">{feature.short}</p>
+      <p className="mt-auto text-sm leading-relaxed text-muted/80">{feature.description}</p>
+      <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand">
+        Saber mais <Arrow />
+      </span>
+    </Link>
+  );
+}
 
-export default function Home() {
-  const [domain, setDomain] = useState("");
-  const [extension, setExtension] = useState(".co.mz");
-  const [searched, setSearched] = useState(false);
+export default async function HomePage() {
+  const [hostingPlans, projects, testimonials, settings] = await Promise.all([
+    getHostingPlans(),
+    getProjects(),
+    getTestimonials(),
+    getSiteSettings(),
+  ]);
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (domain.trim()) setSearched(true);
-  }
+  const priceCards = hostingPlans.slice(0, 3);
+  const platformAreas = ["commerce", "creators", "intelligence", "operations"] as const;
+
+  const countryCode = /mozambique|moçambique/i.test(settings.general.country) ? "MZ" : "MZ";
+  const jsonLd = localBusinessSchema({
+    name: settings.general.siteName,
+    email: settings.general.supportEmail,
+    telephone: settings.whatsapp.phoneNumber,
+    street: settings.general.address,
+    city: settings.general.city,
+    countryCode,
+  });
 
   return (
     <div className="site-shell">
-      <SiteHeader anchors />
-      <main id="top">
-        <motion.section
-          className="hero section-wrap"
-          initial="hidden"
-          animate="visible"
-          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.12 } } }}
-        >
-          <motion.div className="hero-copy" variants={heroCopy}>
-            <p className="eyebrow"><span className="pulse" /> Parceiros digitais para negócios ambiciosos</p>
-            <h1>Dê sentido ao<br /><em>próximo passo.</em></h1>
-            <p className="hero-text">Tudo o que precisa para construir, lançar e fazer crescer a sua presença digital. Estratégia cuidadosa, design marcante e tecnologia que trabalha consigo.</p>
-            <div className="flex items-center gap-7 mt-8">
-              <a className="button" href="#contact">Começar projecto <Arrow /></a>
-              <a className="text-link" href="#services">Explorar serviços <Arrow /></a>
-            </div>
-          </motion.div>
-
-          <motion.div className="hero-art" aria-label="Smartphone moderno a apresentar um website" variants={heroArt}>
-            <div className="hero-glow" />
-            <motion.div
-              className="hero-orbit orbit-one"
-              animate={{ rotate: [-20, -12, -20], scale: [1, 1.035, 1], opacity: [0.72, 1, 0.72] }}
-              transition={{ duration: 14, ease: "easeInOut", repeat: Infinity }}
-            />
-            <motion.div
-              className="hero-orbit orbit-two"
-              animate={{ rotate: [42, 50, 42], scale: [1, 0.96, 1], opacity: [0.45, 0.8, 0.45] }}
-              transition={{ duration: 18, ease: "easeInOut", repeat: Infinity }}
-            />
-            <div className="phone">
-              <div className="phone-notch" />
-              <div className="phone-screen">
-                <div className="screen-top">ID<span>.</span><small>MENU</small></div>
-                <div className="screen-title">Crie<br /><i>com força.</i></div>
-                <div className="screen-line" />
-                <div className="screen-footer">DESLIZE PARA EXPLORAR <b>↓</b></div>
-              </div>
-            </div>
-            <div className="art-label label-top">01 / 03<br /><b>Criação digital</b></div>
-            <div className="art-label label-bottom">Maputo, MZ<br /><b>25° 58′ S</b></div>
-          </motion.div>
-        </motion.section>
-
-        <section className="domain-panel section-wrap" aria-labelledby="domain-heading">
-          <div className="section-kicker"><span>01</span><span className="rule" /><span>Encontre o seu lugar</span></div>
-          <div className="domain-heading">
-            <h2 id="domain-heading">A sua ideia merece<br /><em>um bom endereço.</em></h2>
-            <p>Pesquise um domínio que torne o seu negócio fácil de encontrar, lembrar e confiar.</p>
-          </div>
-          <form className="domain-form" onSubmit={handleSearch}>
-            <label className="sr-only" htmlFor="domain">Pesquisar um domínio</label>
-            <input id="domain" value={domain} onChange={(event) => { setDomain(event.target.value); setSearched(false); }} placeholder="oseunegocio" />
-            <select value={extension} onChange={(event) => setExtension(event.target.value)} aria-label="Extensão do domínio">
-              <option>.co.mz</option><option>.com</option><option>.africa</option><option>.org</option>
-            </select>
-            <button className="button" type="submit">Pesquisar domínio <Arrow /></button>
-          </form>
-          {searched && (
-            <div className="domain-result">
-              <span className="result-check">✓</span>
-              <span><strong>{domain.toLowerCase().replaceAll(" ", "")}{extension}</strong><small>Disponível para registo</small></span>
-              <b>2,500 MT / ano</b>
-              <a href="#contact" className="result-link">Adicionar ao carrinho <Arrow /></a>
-            </div>
-          )}
-          <div className="domain-foot">
-            <span>Extensões populares</span><b>.co.mz</b><span>.com</span><span>.africa</span><span>.tech</span><span>.online</span>
+      <SiteHeader />
+      <main id="main">
+        {/* Hero */}
+        <section className="hero-simple section-wrap">
+          <p className="eyebrow">
+            <span className="pulse" /> One platform. Your digital presence.
+          </p>
+          <h1>
+            Build your digital presence <em>with IDesign Moz.</em>
+          </h1>
+          <p className="hero-text">
+            Domínios, alojamento, websites e serviços digitais — geridos a partir de uma única
+            plataforma SaaS. Com suporte local em Maputo e espaço para crescer consigo.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
+            <Link className="button" href="/domains/search">
+              Search Domain <Arrow />
+            </Link>
+            <Link className="outline-button" href="/hosting">
+              Choose Hosting <Arrow />
+            </Link>
           </div>
         </section>
 
-        <section className="services-section section-wrap" id="services">
-          <div className="section-kicker"><span>02</span><span className="rule" /><span>O que fazemos</span></div>
-          <div className="section-intro">
-            <h2>Um parceiro.<br /><em>Mais impulso.</em></h2>
-            <p>Do seu primeiro domínio à próxima grande campanha, juntamos pensamento e execução sob o mesmo tecto.</p>
+        {/* Domain search */}
+        <section className="domain-panel section-wrap" id="domains" aria-labelledby="domain-heading">
+          <div className="domain-heading domain-heading-center">
+            <h2 id="domain-heading">
+              Search your <em>domain.</em>
+            </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {services.map((service, index) => (
-              <motion.article
-                className="service-card"
-                key={service.number}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.25 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <span className="service-number">{service.number}</span>
-                <div className="service-icon">{service.number === "01" ? "◩" : service.number === "02" ? "✳" : "↗"}</div>
-                <h3>{service.title}</h3>
-                <p>{service.text}</p>
-                <a href="#contact">{service.tag} <Arrow /></a>
-              </motion.article>
+          <DomainSearch />
+          <div className="domain-foot">
+            <span>Popular extensions</span>
+            <b>.com</b>
+            <span>.co.mz</span>
+            <span>.net</span>
+            <span>.org</span>
+            <span>.africa</span>
+          </div>
+        </section>
+
+        {/* The four-step journey */}
+        <section className="services-section section-wrap" id="how-it-works">
+          <div className="section-kicker">
+            <span>01</span>
+            <span className="rule" />
+            <span>Como funciona</span>
+          </div>
+          <div className="section-intro">
+            <h2>
+              Uma plataforma, <em>quatro passos.</em>
+            </h2>
+            <p>Do primeiro domínio ao painel de gestão, sem sair do mesmo ecossistema.</p>
+          </div>
+          <div className="case-grid">
+            {funnelSteps.map((step) => (
+              <Link key={step.n} className="case-card" href={step.href}>
+                <span>{step.n}</span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+                <b style={{ color: "var(--lime)", fontSize: 12, marginTop: "auto" }}>
+                  {step.cta} <Arrow />
+                </b>
+              </Link>
             ))}
           </div>
         </section>
 
-        <section className="work-section section-wrap" id="work">
-          <div className="section-kicker"><span>03</span><span className="rule" /><span>Trabalhos seleccionados</span></div>
-          <div className="work-heading">
-            <h2>Feito em Moçambique.<br /><em>Construído para o mundo.</em></h2>
-            <a className="text-link" href="#contact">Ver trabalhos <Arrow /></a>
-          </div>
-          <Swiper
-            className="work-swiper"
-            modules={[Autoplay, A11y]}
-            autoplay={{ delay: 4200, disableOnInteraction: false }}
-            spaceBetween={25}
-            slidesPerView={1.05}
-            breakpoints={{ 760: { slidesPerView: 1.35 }, 1020: { slidesPerView: 1.75 } }}
-            aria-label="Trabalhos seleccionados"
-          >
-            <SwiperSlide>
-              <article className="work-feature">
-                <div className="work-image coastal">
-                  <div className="work-overlay"><span>Hotelaria · 2024</span><h3>Castel<br /><em>Branco</em></h3></div>
-                </div>
-                <p>Estratégia de marca / Experiência digital</p>
-              </article>
-            </SwiperSlide>
-            <SwiperSlide>
-              <article className="work-feature">
-                <div className="work-image editorial">
-                  <div className="editorial-word">Kaya</div>
-                  <div className="work-overlay"><span>Cultura · 2023</span></div>
-                </div>
-                <p>Identidade / Comércio electrónico</p>
-              </article>
-            </SwiperSlide>
-          </Swiper>
-        </section>
-
-        <motion.section
-          className="hosting-section section-wrap"
-          id="hosting"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.65 }}
-        >
+        {/* Hosting */}
+        <section className="hosting-section section-wrap" id="hosting">
           <div className="hosting-copy">
-            <div className="section-kicker"><span>04</span><span className="rule" /><span>Alojamento, simplificado</span></div>
-            <h2>Mantenha o seu<br /><em>espaço na web</em><br />sempre aberto.</h2>
+            <div className="section-kicker">
+              <span>02</span>
+              <span className="rule" />
+              <span>Alojamento, simplificado</span>
+            </div>
+            <h2>
+              Mantenha o seu <em>espaço na web</em> sempre aberto.
+            </h2>
             <p>Alojamento fiável com suporte local, segurança integrada e espaço para o que vem a seguir.</p>
-            <a className="text-link" href="#pricing">Comparar planos <Arrow /></a>
+            <a className="text-link" href="#pricing">
+              Comparar planos <Arrow />
+            </a>
           </div>
           <div className="hosting-card-wrap">
-            <div className="hosting-status"><span className="status-dot" /> Todos os sistemas operacionais <small>99,99% de disponibilidade</small></div>
+            <div className="hosting-status">
+              <span className="status-dot" /> Todos os sistemas operacionais{" "}
+              <small>99,99% de disponibilidade</small>
+            </div>
             <div className="hosting-terminal">
-              <div className="terminal-top"><span>idesignmoz / painel</span><i>•••</i></div>
-              <div className="terminal-stat"><span>VISITANTES MENSAIS</span><strong>24.891</strong><b>+18,4%</b></div>
-              <div className="chart">{Array.from({ length: 12 }, (_, index) => <i key={index} />)}</div>
-              <div className="terminal-bottom"><span>SSL activo</span><span>Backups diários</span><span>Maputo / MZ</span></div>
+              <div className="terminal-top">
+                <span>idesignmoz / painel</span>
+                <i>•••</i>
+              </div>
+              <div className="terminal-stat">
+                <span>VISITANTES MENSAIS</span>
+                <strong>24.891</strong>
+                <b>+18,4%</b>
+              </div>
+              <div className="chart">
+                {Array.from({ length: 12 }, (_, index) => (
+                  <i key={index} />
+                ))}
+              </div>
+              <div className="terminal-bottom">
+                <span>SSL activo</span>
+                <span>Backups diários</span>
+                <span>Maputo / MZ</span>
+              </div>
             </div>
           </div>
-        </motion.section>
+        </section>
 
-        <section className="pricing-section section-wrap" id="pricing">
-          <div className="section-kicker"><span>05</span><span className="rule" /><span>Preços simples</span></div>
+        {/* Platform / future roadmap */}
+        <section className="services-section section-wrap" id="platform">
+          <div className="section-kicker">
+            <span>03</span>
+            <span className="rule" />
+            <span>Uma plataforma que cresce consigo</span>
+          </div>
           <div className="section-intro">
-            <h2>Espaço para crescer.<br /><em>Sem surpresas.</em></h2>
+            <h2>
+              Feito para ser <em>o seu painel.</em>
+            </h2>
+            <p>
+              Desenhada de forma modular, a IDesign Moz evolui sem reconstruir o sistema — do
+              website builder à IA, passando por revenda e marketplace.
+            </p>
+          </div>
+          <div className="flex flex-col gap-8">
+            {platformAreas.map((area) => {
+              const features = FUTURE_FEATURES.filter((f) => f.area === area);
+              if (!features.length) return null;
+              return (
+                <div key={area}>
+                  <div className="mb-4 text-xs font-bold uppercase tracking-widest text-brand">
+                    {stageTitles[area]}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {features.map((feature) => (
+                      <PlatformCard key={feature.id} feature={feature} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Work / portfolio */}
+        <section className="work-section section-wrap" id="work" aria-label="Trabalhos seleccionados">
+          <div className="section-kicker">
+            <span>04</span>
+            <span className="rule" />
+            <span>Trabalhos seleccionados</span>
+          </div>
+          <div className="work-heading">
+            <h2>
+              Feito em Moçambique. <em>Construído para o mundo.</em>
+            </h2>
+            <Link className="text-link" href="/portfolio">
+              Ver trabalhos <Arrow />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {projects.slice(0, 2).map((project, index) => {
+              const tone = index % 2 === 0 ? "coastal" : "editorial";
+              return (
+                <article className="work-feature" key={project.slug}>
+                  <div className={`work-image ${tone}`}>
+                    <div className="work-overlay">
+                      <span>
+                        {project.industry} · {project.year}
+                      </span>
+                      <h3>{project.client}</h3>
+                    </div>
+                  </div>
+                  <p>{project.services.join(" / ")}</p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section className="services-section section-wrap" id="pricing">
+          <div className="section-kicker">
+            <span>05</span>
+            <span className="rule" />
+            <span>Preços simples</span>
+          </div>
+          <div className="section-intro">
+            <h2>
+              Espaço para crescer. <em>Sem surpresas.</em>
+            </h2>
             <p>Comece com o que precisa hoje. Faça upgrade quando chegar a altura.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {hostingPlans.map((plan) => (
-              <article className={`price-card ${plan.featured ? "featured" : ""}`} key={plan.name}>
-                {plan.featured && <span className="popular">Mais escolhido</span>}
-                <h3>{plan.name}</h3>
-                <p>{plan.detail}</p>
-                <div className="price"><strong>{plan.price}</strong> <span>MT / mês</span></div>
-                <ul>{plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul>
-                <a className={plan.featured ? "button" : "outline-button"} href="#contact">Escolher {plan.name} <Arrow /></a>
-              </article>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            {priceCards.map((plan) => (
+              <PricingCard
+                key={plan.slug}
+                title={plan.name}
+                description={plan.description}
+                price={formatMZN(plan.monthlyPrice)}
+                period="MT / mês"
+                features={plan.features.slice(0, 3)}
+                featured={plan.featured}
+                popularLabel={plan.featured ? "Mais escolhido" : undefined}
+                cta={{
+                  label: (
+                    <>
+                      Escolher {plan.name} <Arrow />
+                    </>
+                  ),
+                  href: `/hosting/${plan.slug}`,
+                }}
+              />
             ))}
           </div>
         </section>
 
-        <motion.section
-          className="cta-section section-wrap"
-          id="contact"
-          initial={{ opacity: 0, scale: 0.98 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, amount: 0.35 }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="cta-mark">ID<span>.</span></div>
-          <div>
-            <p className="eyebrow">Tem uma boa ideia?</p>
-            <h2>Vamos torná-la<br /><em>realidade.</em></h2>
-            <a className="button" href="mailto:hello@idesignmoz.com">Iniciar conversa <Arrow /></a>
+        {/* Testimonials */}
+        <section className="services-section section-wrap" id="testimonials">
+          <div className="section-kicker">
+            <span>06</span>
+            <span className="rule" />
+            <span>O que dizem os clientes</span>
           </div>
-          <div className="cta-contact">
-            <span>Fale connosco</span>
-            <a href="mailto:hello@idesignmoz.com">hello@idesignmoz.com</a>
-            <a href="tel:+258840000000">+258 84 000 0000</a>
-            <small>Av. Julius Nyerere<br />Maputo, Moçambique</small>
+          <div className="section-intro">
+            <h2>
+              A confiança <em>vem por provas.</em>
+            </h2>
+            <p>Palavras de quem já trabalha connosco e com os nossos sistemas.</p>
           </div>
-        </motion.section>
+          <div className="testimonial-grid">
+            {testimonials.map((t) => (
+              <TestimonialCard key={t.name} quote={t.quote} name={t.name} role={t.role} />
+            ))}
+          </div>
+        </section>
       </main>
-      <SiteFooter anchors />
+      <SiteFooter />
+      <JsonLd data={jsonLd} />
     </div>
   );
 }

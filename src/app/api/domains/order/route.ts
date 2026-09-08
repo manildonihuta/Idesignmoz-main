@@ -1,35 +1,45 @@
 import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkDomainAvailability } from "@/lib/domain-provider";
+import { apiDomainOrderSchema } from "@/lib/schemas";
+import { csrfError, csrfFailure } from "@/lib/security/csrf";
+import { applyRateLimit, rateLimitResponse, clientIp } from "@/lib/security/rate-limit";
+import { logAudit, AUDIT } from "@/lib/security/audit";
+import { serverLogError } from "@/lib/server-log";
 
 export const dynamic = "force-dynamic";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function sanitizeDomainName(raw: string): string | null {
-  const name = raw.toLowerCase().replace(/\s+/g, "").trim();
-  if (!name || name.length < 2 || name.length > 63) return null;
-  if (!/^[a-z0-9-]+$/.test(name)) return null;
-  if (name.startsWith("-") || name.endsWith("-")) return null;
-  return name;
-}
-
 export async function POST(request: NextRequest) {
-  let body: { name?: string; email?: string; fullDomain?: string; extension?: string };
+  const ip = clientIp(request);
+
+  const csrf = csrfError(request);
+  if (csrf) return csrfFailure();
+
+  const limited = await applyRateLimit(request, {
+    prefix: "domain-order",
+    limit: 6,
+    windowSec: 60,
+    ip,
+  });
+  if (!limited.ok) return rateLimitResponse(limited.retryAfterSec);
+
+  let body: unknown;
   try {
     body = await request.json();
-  } catch {
+  } catch (e) {
+    serverLogError("api:domains/order", e);
     return Response.json({ ok: false, error: "Requisição inválida." }, { status: 400 });
   }
 
-  const contactName = body.name?.trim() ?? "";
-  const email = body.email?.trim().toLowerCase() ?? "";
-  const fullDomain = body.fullDomain?.trim().toLowerCase() ?? "";
-  const extension = body.extension?.trim().toLowerCase() ?? "";
-
-  if (!contactName || !email || !EMAIL_RE.test(email) || !fullDomain) {
-    return Response.json({ ok: false, error: "Preencha todos os campos correctamente." }, { status: 400 });
+  const parsed = apiDomainOrderSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(
+      { ok: false, error: "Preencha todos os campos correctamente." },
+      { status: 400 }
+    );
   }
+
+  const { name: contactName, email, fullDomain, extension } = parsed.data;
 
   const { data: ext } = await supabaseAdmin
     .from("domain_extensions")
@@ -44,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   // Derive the domain's name part from fullDomain and make sure it is well-formed.
   const domainName = extension && fullDomain.endsWith(extension) ? fullDomain.slice(0, -extension.length) : null;
-  if (!sanitizeDomainName(domainName ?? "")) {
+  if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(domainName ?? "")) {
     return Response.json({ ok: false, error: "Nome de domínio inválido." }, { status: 400 });
   }
 
@@ -72,6 +82,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
+    serverLogError("api:domains/order", error);
     return Response.json({ ok: false, error: "Não foi possível registar o pedido." }, { status: 500 });
   }
 
@@ -80,6 +91,15 @@ export async function POST(request: NextRequest) {
     { name: domainName, extension, full_domain: fullDomain, status: "reserved", price },
     { onConflict: "full_domain" }
   );
+
+  await logAudit({
+    action: AUDIT.DOMAIN_ORDER_CREATED,
+    entity: "domain_order",
+    entityId: data?.id,
+    actorEmail: email,
+    ip,
+    meta: { fullDomain, extension, price },
+  });
 
   return Response.json({ ok: true, order: data });
 }

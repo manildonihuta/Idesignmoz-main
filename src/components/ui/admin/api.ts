@@ -45,3 +45,8 @@ export const deleteDomain = (id: string) =>
 
 export const patchUserRole = (id: string, role: UserRole) =>
   req(`${BASE}/profiles`, { method: "PATCH", body: JSON.stringify({ id, role }) });
+
+export const runBillingCheck = () =>
+  req<{ ok: true; result: { checked: number; pastDue: number; suspended: number; terminated: number } }>(`${BASE}/subscriptions`, {
+    method: "POST",
+  });
