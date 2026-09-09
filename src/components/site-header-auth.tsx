@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AccountMenu } from "@/components/ui/core/account-menu";
 
 type SessionUser = { email?: string; fullName?: string } | null;
 
@@ -56,10 +57,11 @@ export function HeaderAuth({ onNavigate }: HeaderAuthProps) {
   }
 
   return (
-    <>
-      <span className="nav-login nav-user" title={user.email}>{user.fullName}</span>
-      <Link className="nav-login" href="/admin" onClick={onNavigate}>Admin</Link>
-      <button type="button" className="nav-login" onClick={signOut}>Sair</button>
-    </>
+    <AccountMenu
+      name={user.fullName}
+      email={user.email}
+      onSignOut={() => void signOut()}
+      onNavigate={onNavigate}
+    />
   );
 }

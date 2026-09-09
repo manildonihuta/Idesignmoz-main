@@ -60,4 +60,12 @@ export const AUDIT = {
   AI_SITE_GENERATED: "ai_site.generated",
   AI_SITE_GENERATION_FAILED: "ai_site.generation_failed",
   AI_SITE_PUBLISHED: "ai_site.published",
+  DNS_ZONE_CREATED: "dns.zone_created",
+  DNS_ZONE_DELETED: "dns.zone_deleted",
+  DNS_ZONE_SYNCED: "dns.zone_synced",
+  DNS_RECORD_CREATED: "dns.record_created",
+  DNS_RECORD_UPDATED: "dns.record_updated",
+  DNS_RECORD_DELETED: "dns.record_deleted",
+  DNS_NAMESERVERS_UPDATED: "dns.nameservers_updated",
+  DNS_DNSSEC: "dns.dnssec",
 } as const;

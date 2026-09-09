@@ -24,12 +24,14 @@ import {
   FileKey2,
   HeartHandshake,
   FileSignature,
+  ListTree,
   ChartColumn,
   UserRound,
   Repeat,
 } from "lucide-react";
 import type { AdminMessage, AdminOrder, AdminDomain, AdminProfile, AdminSubscription, Notice } from "./admin/types";
 import { useAdminData } from "./admin/use-admin-data";
+import { ActivityDropdown, type ActivityItem } from "./core/activity-dropdown";
 import {
   OverviewView,
   MessagesView,
@@ -51,6 +53,7 @@ import { ProposalsSystemView } from "./admin/proposals-system-view";
 import { AnalyticsView } from "./admin/analytics-view";
 import { SiteSettingsView } from "./admin/settings-views";
 import { SubscriptionsAdminView } from "./admin/subscriptions-admin-view";
+import { DnsZonesView } from "./admin/dns-admin-views";
 import type { CompanyInfo } from "@/lib/site-settings";
 import type { ProposalServiceItem } from "@/lib/proposals";
 
@@ -74,7 +77,7 @@ type DashboardProps = {
   proposalCatalog?: ProposalServiceItem[];
 };
 
-type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "Domínio Admin" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Subscrições" | "Provisioning" | "Definições" | "Ajuda";
+type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "DNS" | "Domínio Admin" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Subscrições" | "Provisioning" | "Definições" | "Ajuda";
 
 const fmtMT = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
 
@@ -84,6 +87,7 @@ const TITLES: Record<ViewId, { title: string; sub: string }> = {
   Mensagens: { title: "Mensagens de contacto", sub: "Trata os contactos recebidos." },
   Pedidos: { title: "Pedidos de domínio", sub: "Acompanha os pedidos de registo." },
   Domínios: { title: "Registo de domínios", sub: "Disponibilidade e consultas RDAP." },
+  DNS: { title: "DNS Management", sub: "Zonas, registos, nameservers e DNSSEC dos domínios." },
   "Domínio Admin": { title: "Domínio Admin", sub: "Preços, registo, suspensão e renovação." },
   CRM: { title: "CRM interno", sub: "Leads, oportunidades, propostas, projetos e relação com clientes." },
   Propostas: { title: "Propostas", sub: "Cria, envia e acompanha propostas comerciais." },
@@ -160,6 +164,7 @@ export default function DashboardWithCollapsibleSidebar({
     { id: "Propostas", label: "Propostas", Icon: FileSignature },
     { id: "Domínio Admin", label: "Domínio Admin", Icon: FileKey2 },
     { id: "Domínios", label: "Domínios", Icon: Globe, notifs: availableDomains },
+    { id: "DNS", label: "DNS", Icon: ListTree, notifs: 0 },
     { id: "Alojamento", label: "Alojamento", Icon: ServerCog },
     { id: "Subscrições", label: "Subscrições", Icon: Repeat, notifs: nonActiveSubs },
     { id: "Provisioning", label: "Provisioning", Icon: Rocket },
@@ -229,6 +234,7 @@ export default function DashboardWithCollapsibleSidebar({
                 {active === "Mensagens" && <MessagesView messages={data.messages} actions={actions} isBusy={isBusy} notify={notify} />}
                 {active === "Pedidos" && <OrdersView orders={data.orders} actions={actions} isBusy={isBusy} notify={notify} />}
                 {active === "Domínios" && <DomainsView domains={data.domains} actions={actions} isBusy={isBusy} notify={notify} />}
+                {active === "DNS" && <DnsZonesView notify={notify} />}
                 {active === "Utilizadores" && (
                   <UsersView profiles={data.profiles} emailByUserId={data.emailByUserId} adminUserId={adminUserId} actions={actions} isBusy={isBusy} notify={notify} />
                 )}
@@ -416,6 +422,23 @@ function NotificationsBell() {
     }
   }
 
+  const notifIcon = (kind: string) => {
+    if (kind.includes("subscription")) return RefreshCw;
+    if (kind.includes("hosting")) return ServerCog;
+    if (kind.includes("domain")) return Globe;
+    if (kind.includes("ai_site")) return Rocket;
+    if (kind.includes("project")) return FileSignature;
+    return Bell;
+  };
+
+  const activityItems: ActivityItem[] = items.map((item) => ({
+    id: item.id,
+    icon: notifIcon(item.kind),
+    title: item.title,
+    description: item.body ?? undefined,
+    time: fmtWhen(item.createdAt),
+  }));
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -439,42 +462,36 @@ function NotificationsBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-lg border border-line bg-surface shadow-xl"
+            className="absolute right-0 top-11 z-50 w-80"
           >
-            <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <span className="text-sm font-semibold text-paper">Notificações</span>
-              {unread > 0 && (
-                <button type="button" onClick={() => void markRead()} className="text-xs text-brand hover:underline">
-                  Marcar todas como lidas
-                </button>
-              )}
-            </div>
-            <div className="max-h-80 overflow-y-auto">
-              {loading ? (
-                <p className="px-3 py-4 text-center text-sm text-muted">A carregar…</p>
-              ) : items.length === 0 ? (
-                <p className="px-3 py-4 text-center text-sm text-muted">Sem notificações.</p>
-              ) : (
-                items.map((item) => (
-                  <div key={item.id} className={`border-b border-line/60 px-3 py-2.5 ${item.readAt ? "opacity-60" : ""}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-paper">{item.title}</p>
-                      <span className="shrink-0 text-[10px] text-muted">{fmtWhen(item.createdAt)}</span>
-                    </div>
-                    {item.body && <p className="mt-0.5 text-xs text-muted">{item.body}</p>}
-                    {!item.readAt && (
-                      <button
-                        type="button"
-                        onClick={() => void markRead(item.id)}
-                        className="mt-1.5 text-xs text-brand hover:underline"
-                      >
-                        Marcar como lida
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+            <ActivityDropdown
+              open
+              onToggle={() => setOpen((v) => !v)}
+              title={
+                items.length === 0
+                  ? "Notificações"
+                  : unread > 0
+                    ? `${unread} por ler`
+                    : "Tudo lido"
+              }
+              subtitle="Tem novidades no painel"
+              items={activityItems}
+              icon={Bell}
+              emptyText={loading ? "A carregar…" : "Sem notificações."}
+              renderItemExtra={(item) => {
+                const notif = items.find((n) => n.id === item.id);
+                if (!notif || notif.readAt) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => void markRead(item.id)}
+                    className="mt-1 block text-xs text-brand hover:underline"
+                  >
+                    Marcar como lida
+                  </button>
+                );
+              }}
+            />
           </motion.div>
         )}
       </AnimatePresence>

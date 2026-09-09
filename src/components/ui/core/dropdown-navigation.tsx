@@ -39,6 +39,50 @@ export function DropdownMenu({ label, menu, onNavigate, alignEnd = false }: Drop
     setOpen((o) => !o);
   };
 
+  const menuWithDelay = () => {
+    let rowIndex = 0;
+    return menu.map((column) => (
+      <div className="min-w-[170px]" key={column.title}>
+        <h3 className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+          {column.title}
+        </h3>
+        <ul className="space-y-5">
+          {column.items.map((item) => {
+            const Icon = item.icon;
+            const delay = rowIndex * 0.045;
+            rowIndex += 1;
+            return (
+              <motion.li
+                key={item.href + item.label}
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.22, delay, ease: "easeOut" }}
+              >
+                <Link href={item.href} onClick={onNavigate} className="group flex items-start gap-3">
+                  {Icon && (
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-line text-paper transition-colors duration-300 group-hover:bg-brand/10 group-hover:text-brand">
+                      <Icon className="size-5 flex-none" aria-hidden="true" />
+                    </span>
+                  )}
+                  <span className="leading-5">
+                    <span className="block text-sm font-medium text-paper transition-colors duration-300 group-hover:text-brand">
+                      {item.label}
+                    </span>
+                    {item.description && (
+                      <span className="block max-w-[180px] text-xs text-muted transition-colors duration-300 group-hover:text-paper">
+                        {item.description}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              </motion.li>
+            );
+          })}
+        </ul>
+      </div>
+    ));
+  };
+
   return (
     <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={close}>
       <button
@@ -75,43 +119,7 @@ export function DropdownMenu({ label, menu, onNavigate, alignEnd = false }: Drop
               onMouseDown={(e) => e.preventDefault()}
             >
               <div className="flex w-fit gap-9 overflow-hidden">
-                {menu.map((column) => (
-                  <div className="min-w-[170px]" key={column.title}>
-                    <h3 className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
-                      {column.title}
-                    </h3>
-                    <ul className="space-y-5">
-                      {column.items.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <li key={item.href + item.label}>
-                            <Link
-                              href={item.href}
-                              onClick={onNavigate}
-                              className="group flex items-start gap-3"
-                            >
-                              {Icon && (
-                                <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-line text-paper transition-colors duration-300 group-hover:bg-brand/10 group-hover:text-brand">
-                                  <Icon className="size-5 flex-none" aria-hidden="true" />
-                                </span>
-                              )}
-                              <span className="leading-5">
-                                <span className="block text-sm font-medium text-paper transition-colors duration-300 group-hover:text-brand">
-                                  {item.label}
-                                </span>
-                                {item.description && (
-                                  <span className="block max-w-[180px] text-xs text-muted transition-colors duration-300 group-hover:text-paper">
-                                    {item.description}
-                                  </span>
-                                )}
-                              </span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
+                {menuWithDelay()}
               </div>
             </motion.div>
           </div>

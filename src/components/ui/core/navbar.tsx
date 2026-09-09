@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cx } from "./primitives";
 import { DropdownMenu, type DropdownColumn } from "./dropdown-navigation";
@@ -109,6 +109,65 @@ export interface MobileMenuProps {
 }
 
 /**
+ * Collapsible menu group for the mobile drawer (activity-dropdown effect:
+ * rotating chevron + grid-rows accordion + staggered item reveal).
+ */
+export function MobileMenuGroup({
+  label,
+  items,
+  onNavigate,
+  defaultOpen = true,
+}: {
+  label: string;
+  items: Array<{ label: string; description?: string; href: string }>;
+  onNavigate?: () => void;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex cursor-pointer items-center justify-between font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-brand"
+      >
+        {label}
+        <ChevronDown
+          className={`size-4 text-muted transition-transform duration-500 ease-in-out ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        className={`grid transition-all duration-500 ease-in-out ${
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-3 border-l border-line pl-4">
+            {items.map((sub, index) => (
+              <span
+                key={sub.href + sub.label}
+                className={`flex flex-col transition-all duration-500 ease-in-out ${
+                  open ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+                }`}
+                style={{ transitionDelay: open ? `${index * 50}ms` : "0ms" }}
+              >
+                <Link href={sub.href} onClick={onNavigate}>
+                  {sub.label}
+                </Link>
+                <span className="text-xs text-muted">{sub.description}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Slide-in mobile navigation drawer, wired up to the Navbar's state.
  */
 export function MobileMenu({
@@ -168,28 +227,14 @@ export function MobileMenu({
             <nav className="no-scrollbar flex flex-col gap-6">
               {items.map((item) =>
                 item.menu && item.menu.length > 0 ? (
-                  <div key={item.label} className="flex flex-col gap-3">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
-                      {item.label}
-                    </span>
-                    <div className="flex flex-col gap-3 border-l border-line pl-4">
-                      {item.menu
-                        .flatMap((column) =>
-                          column.items.map((sub) => ({
-                            ...sub,
-                            group: column.title,
-                          })),
-                        )
-                        .map((sub) => (
-                          <span key={sub.href + sub.label} className="flex flex-col">
-                            <Link href={sub.href} onClick={onClose}>
-                              {sub.label}
-                            </Link>
-                            <span className="text-xs text-muted">{sub.description}</span>
-                          </span>
-                        ))}
-                    </div>
-                  </div>
+                  <MobileMenuGroup
+                    key={item.label}
+                    label={item.label}
+                    items={item.menu.flatMap((column) =>
+                      column.items.map((sub) => ({ ...sub, group: column.title })),
+                    )}
+                    onNavigate={onClose}
+                  />
                 ) : (
                   <Link key={item.href ?? item.label} href={itemHref(item)} onClick={onClose}>
                     {item.label}

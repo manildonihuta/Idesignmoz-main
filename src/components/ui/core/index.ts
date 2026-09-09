@@ -41,13 +41,30 @@ export {
   type Notify,
 } from "./toast";
 
-export { Navbar, MobileMenu, type NavbarProps, type NavItem, type MobileMenuProps } from "./navbar";
+export { Navbar, MobileMenu, MobileMenuGroup, type NavbarProps, type NavItem, type MobileMenuProps } from "./navbar";
 export {
-  DropdownMenu,
-  type DropdownMenuProps,
+  DropdownMenu as NavDropdownMenu,
+  type DropdownMenuProps as NavDropdownMenuProps,
   type DropdownColumn,
   type DropdownItem,
 } from "./dropdown-navigation";
+export {
+  ActivityDropdown,
+  type ActivityDropdownProps,
+  type ActivityItem,
+} from "./activity-dropdown";
+export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+} from "./dropdown-menu";
+export { AccountMenu, type AccountMenuProps } from "./account-menu";
 export { Footer, type FooterProps, type FooterColumn } from "./footer";
 export { Hero, type HeroProps } from "./hero";
 export { Section, type SectionProps } from "./section";

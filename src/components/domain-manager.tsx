@@ -733,17 +733,26 @@ export default function DomainManager({ domains: initial }: { domains: ClientDom
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        className="text-xs font-semibold text-brand hover:underline"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelected(d.fullDomain);
-                          setTab("Overview");
-                        }}
-                      >
-                        Gerir ↗
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          className="text-xs font-semibold text-brand hover:underline"
+                          href={`/dashboard/domains/${encodeURIComponent(d.fullDomain)}/dns`}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          DNS ↗
+                        </Link>
+                        <button
+                          className="text-xs font-semibold text-brand hover:underline"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelected(d.fullDomain);
+                            setTab("Overview");
+                          }}
+                        >
+                          Gerir ↗
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
