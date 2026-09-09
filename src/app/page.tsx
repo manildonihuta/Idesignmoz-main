@@ -14,6 +14,7 @@ import { localBusinessSchema, seo } from "@/lib/seo";
 import { getSiteSettings } from "@/lib/site-settings";
 import { formatMZN } from "@/lib/currency";
 import { FUTURE_FEATURES, type FutureFeature } from "@/lib/platform-futures";
+import HeroAntigravity from "@/components/hero-antigravity";
 
 export const dynamic = "force-dynamic";
 
@@ -121,24 +122,29 @@ export default async function HomePage() {
       <SiteHeader />
       <main id="main">
         {/* Hero */}
-        <section className="hero-simple section-wrap">
-          <p className="eyebrow">
-            <span className="pulse" /> One platform. Your digital presence.
-          </p>
-          <h1>
-            Build your digital presence <em>with IDesign Moz.</em>
-          </h1>
-          <p className="hero-text">
-            Domínios, alojamento, websites e serviços digitais — geridos a partir de uma única
-            plataforma SaaS. Com suporte local em Maputo e espaço para crescer consigo.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
-            <Link className="button" href="/domains/search">
-              Search Domain <Arrow />
-            </Link>
-            <Link className="outline-button" href="/hosting">
-              Choose Hosting <Arrow />
-            </Link>
+        <section className="hero-simple section-wrap relative overflow-hidden">
+          <div className="absolute inset-0 z-0" aria-hidden="true">
+            <HeroAntigravity />
+          </div>
+          <div className="relative z-10">
+            <p className="eyebrow">
+              <span className="pulse" /> One platform. Your digital presence.
+            </p>
+            <h1>
+              Build your digital presence <em>with IDesign Moz.</em>
+            </h1>
+            <p className="hero-text">
+              Domínios, alojamento, websites e serviços digitais — geridos a partir de uma única
+              plataforma SaaS. Com suporte local em Maputo e espaço para crescer consigo.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
+              <Link className="button" href="/domains/search">
+                Search Domain <Arrow />
+              </Link>
+              <Link className="outline-button" href="/hosting">
+                Choose Hosting <Arrow />
+              </Link>
+            </div>
           </div>
         </section>
 

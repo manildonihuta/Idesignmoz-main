@@ -42,6 +42,12 @@ export {
 } from "./toast";
 
 export { Navbar, MobileMenu, type NavbarProps, type NavItem, type MobileMenuProps } from "./navbar";
+export {
+  DropdownMenu,
+  type DropdownMenuProps,
+  type DropdownColumn,
+  type DropdownItem,
+} from "./dropdown-navigation";
 export { Footer, type FooterProps, type FooterColumn } from "./footer";
 export { Hero, type HeroProps } from "./hero";
 export { Section, type SectionProps } from "./section";

@@ -5,12 +5,15 @@ import Link from "next/link";
 import { Search, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cx } from "./primitives";
+import { DropdownMenu, type DropdownColumn } from "./dropdown-navigation";
 
 export interface NavItem {
   label: string;
-  href: string;
+  href?: string;
   /** When `anchors` is true, overrides the anchor derived from `href` (e.g. "/portfolio" -> "#work"). */
   anchor?: string;
+  /** Optional grouped drop-down columns (hover-driven, desktop only). */
+  menu?: DropdownColumn[];
 }
 
 export interface NavbarProps {
@@ -45,7 +48,10 @@ export function Navbar({ brand, items, right, anchors = false, searchHref = "/do
     return () => document.removeEventListener("keydown", onKey);
   }, [open, close]);
 
-  const itemHref = (item: NavItem) => (anchors ? item.anchor ?? `#${item.href.split("/").filter(Boolean).pop()}` : item.href);
+  const itemHref = (item: NavItem) => {
+    const href = item.href ?? "#";
+    return anchors ? item.anchor ?? `#${href.split("/").filter(Boolean).pop()}` : href;
+  };
 
   return (
     <header className="navbar" aria-label="Navegação principal">
@@ -53,11 +59,21 @@ export function Navbar({ brand, items, right, anchors = false, searchHref = "/do
         {typeof brand === "string" ? <Link className="logo" href={anchors ? "#main" : "/"}>{brand}</Link> : brand}
 
         <nav className="nav-links">
-          {items.map((item) => (
-            <Link key={item.href} href={itemHref(item)} onClick={close}>
-              {item.label}
-            </Link>
-          ))}
+          {items.map((item, index) =>
+            item.menu && item.menu.length > 0 ? (
+              <DropdownMenu
+                key={item.label}
+                label={item.label}
+                menu={item.menu}
+                onNavigate={close}
+                alignEnd={index > items.length - 2}
+              />
+            ) : (
+              <Link key={item.href ?? item.label} href={itemHref(item)} onClick={close}>
+                {item.label}
+              </Link>
+            ),
+          )}
           <Link className="nav-search" href={searchHref} onClick={close} aria-label="Pesquisar">
             <Search size={14} aria-hidden="true" /> Pesquisar
           </Link>
@@ -112,7 +128,10 @@ export function MobileMenu({
     };
   }, [open]);
 
-  const itemHref = (item: NavItem) => (anchors ? item.anchor ?? `#${item.href.split("/").filter(Boolean).pop()}` : item.href);
+  const itemHref = (item: NavItem) => {
+    const href = item.href ?? "#";
+    return anchors ? item.anchor ?? `#${href.split("/").filter(Boolean).pop()}` : href;
+  };
   const renderRight = typeof right === "function" ? right(onClose) : right;
 
   return (
@@ -147,11 +166,36 @@ export function MobileMenu({
               <X className="size-5" />
             </button>
             <nav className="no-scrollbar flex flex-col gap-6">
-              {items.map((item) => (
-                <Link key={item.href} href={itemHref(item)} onClick={onClose}>
-                  {item.label}
-                </Link>
-              ))}
+              {items.map((item) =>
+                item.menu && item.menu.length > 0 ? (
+                  <div key={item.label} className="flex flex-col gap-3">
+                    <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
+                      {item.label}
+                    </span>
+                    <div className="flex flex-col gap-3 border-l border-line pl-4">
+                      {item.menu
+                        .flatMap((column) =>
+                          column.items.map((sub) => ({
+                            ...sub,
+                            group: column.title,
+                          })),
+                        )
+                        .map((sub) => (
+                          <span key={sub.href + sub.label} className="flex flex-col">
+                            <Link href={sub.href} onClick={onClose}>
+                              {sub.label}
+                            </Link>
+                            <span className="text-xs text-muted">{sub.description}</span>
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Link key={item.href ?? item.label} href={itemHref(item)} onClick={onClose}>
+                    {item.label}
+                  </Link>
+                ),
+              )}
               <Link className="nav-drawer-search" href={searchHref} onClick={onClose}>
                 <Search size={15} aria-hidden="true" /> Pesquisar
               </Link>

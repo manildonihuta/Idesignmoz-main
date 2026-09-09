@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Third-party vendor assets (Revolution Slider, etc.):
+    "vendors/**",
+    // Legacy static-theme scripts shipped from the original repo root:
+    "js/**",
   ]),
 ]);
 
