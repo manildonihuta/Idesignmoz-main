@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useSyncExternalStore } from "react";
 
 import type { ClientTicket } from "@/lib/client-data";
 import {
-  createTicket,
-  getTickets,
-  replyToTicket,
-  subscribe,
   TICKET_CATEGORIES,
   TICKET_PRIORITIES,
   type SupportTicket,
@@ -51,7 +46,7 @@ function mapDbTicket(t: ClientTicket): SupportTicket {
   };
 }
 
-function NewTicketForm({ onDone, useDb }: { onDone: () => void; useDb: boolean }) {
+function NewTicketForm({ onDone }: { onDone: () => void }) {
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState<TicketCategory>("Technical Support");
   const [priority, setPriority] = useState<TicketPriority>("Normal");
@@ -73,31 +68,20 @@ function NewTicketForm({ onDone, useDb }: { onDone: () => void; useDb: boolean }
     if (!subject.trim() || !text.trim()) return;
     setSubmitting(true);
 
-    if (useDb) {
-      try {
-        const res = await fetch("/api/client/tickets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject: subject.trim(),
-            body: text.trim(),
-            category,
-            priority: priority.toLowerCase(),
-          }),
-        });
-        if (res.ok) window.location.reload();
-      } catch {
-        /* ignore */
-      }
-    } else {
-      createTicket({
-        subject: subject.trim(),
-        category,
-        priority,
-        text: text.trim(),
-        attachment: fileName ? { name: fileName, size: fileSize } : undefined,
+    try {
+      const res = await fetch("/api/client/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: subject.trim(),
+          body: text.trim(),
+          category,
+          priority: priority.toLowerCase(),
+        }),
       });
-      onDone();
+      if (res.ok) window.location.reload();
+    } catch {
+      /* ignore */
     }
     setSubmitting(false);
   }
@@ -161,11 +145,9 @@ function NewTicketForm({ onDone, useDb }: { onDone: () => void; useDb: boolean }
 
 function TicketThread({
   ticket,
-  useDb,
   dbTicket,
 }: {
   ticket: SupportTicket;
-  useDb: boolean;
   dbTicket?: ClientTicket;
 }) {
   const [reply, setReply] = useState("");
@@ -175,7 +157,7 @@ function TicketThread({
     if (!reply.trim()) return;
     setSubmitting(true);
 
-    if (useDb && dbTicket) {
+    if (dbTicket) {
       try {
         const res = await fetch("/api/client/tickets", {
           method: "PATCH",
@@ -186,10 +168,8 @@ function TicketThread({
       } catch {
         /* ignore */
       }
-    } else {
-      replyToTicket(ticket.id, reply.trim());
-      setReply("");
     }
+    setReply("");
     setSubmitting(false);
   }
 
@@ -233,15 +213,13 @@ function formatPriority(priority: string): string {
 }
 
 export function TicketsView({ initialData }: { initialData?: ClientTicket[] }) {
-  const mockTickets = useSyncExternalStore(subscribe, getTickets, getTickets);
-  const useDb = Boolean(initialData && initialData.length > 0);
-  const tickets = useDb ? initialData!.map(mapDbTicket) : mockTickets;
+  const tickets = (initialData ?? []).map(mapDbTicket);
 
   const [showForm, setShowForm] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const open = openId ? tickets.find((t) => t.id === openId) : undefined;
-  const openDb = useDb ? initialData?.find((t) => (t.number || t.id) === openId) : undefined;
+  const openDb = initialData?.find((t) => (t.number || t.id) === openId);
 
   if (open) {
     return (
@@ -260,7 +238,7 @@ export function TicketsView({ initialData }: { initialData?: ClientTicket[] }) {
           </div>
         </div>
 
-        <TicketThread ticket={open} useDb={useDb} dbTicket={openDb} />
+        <TicketThread ticket={open} dbTicket={openDb} />
       </div>
     );
   }
@@ -280,7 +258,7 @@ export function TicketsView({ initialData }: { initialData?: ClientTicket[] }) {
       </div>
 
       {showForm ? (
-        <NewTicketForm onDone={() => setShowForm(false)} useDb={useDb} />
+        <NewTicketForm onDone={() => setShowForm(false)} />
       ) : null}
 
       <div className="grid grid-cols-1 gap-3">

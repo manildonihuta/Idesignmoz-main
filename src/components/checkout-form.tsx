@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSyncExternalStore } from "react";
 
-import { cartTotal, clearCart, cartCategories, getServerSnapshot, getSnapshot, kindLabel, subscribe } from "@/lib/cart";
+import { cartTotal, clearCart, cartCategories, getServerSnapshot, getSnapshot, kindLabel, subscribe, type CartItem } from "@/lib/cart";
 import {
   CATEGORY_LABEL_PT,
   CATEGORY_ICON,
@@ -19,12 +19,6 @@ import {
   useCatalog,
 } from "@/lib/catalog-client";
 import { trackEvent } from "@/lib/analytics-client";
-import {
-  getProductKind,
-  buildOrder,
-  saveOrder,
-  type Order,
-} from "@/lib/orders";
 import {
   generateReference,
   PAYMENT_METHODS,
@@ -59,6 +53,27 @@ const EMPTY_CUSTOMER: CustomerData = {
 
 function fmt(price: number): string {
   return new Intl.NumberFormat("pt-MZ").format(price);
+}
+
+type LocalReceipt = {
+  id: string;
+  date: string;
+  status: "Paid";
+  total: number;
+  customer?: {
+    fullName?: string;
+    email?: string;
+  };
+  items: CartItem[];
+};
+
+function productKind(item: CartItem): "Domain" | "Hosting" | "Website" | "Service" {
+  if (item.kind === "hosting" || item.kind === "email") return "Hosting";
+  if (item.kind === "renewal" || item.kind === "registration") return "Domain";
+  if (item.kind === "website" || item.kind === "branding" || item.kind === "software" || item.kind === "design") {
+    return "Website";
+  }
+  return "Service";
 }
 
 function periodLabel(period: string): string {
@@ -120,7 +135,7 @@ export function CheckoutForm() {
   const [method, setMethod] = useState<PaymentMethodId>("mpesa");
   const [reference] = useState(generateReference);
   const [result, setResult] = useState<PaymentResult | null>(null);
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<LocalReceipt | null>(null);
   const [orderOffers, setOrderOffers] = useState<ReturnType<typeof crossSellOffers>>([]);
   const [processing, setProcessing] = useState(false);
 
@@ -203,14 +218,17 @@ export function CheckoutForm() {
       } catch {
         // keep the local receipt even if server persistence fails
       }
-      const created = buildOrder(items, total, {
-        fullName: customer.fullName,
-        email: customer.email,
-      });
-      if (serverNumber) {
-        created.id = serverNumber;
-      }
-      saveOrder(created);
+      const created: LocalReceipt = {
+        id: serverNumber ?? reference,
+        date: new Date().toISOString(),
+        status: "Paid",
+        total,
+        customer: {
+          fullName: customer.fullName,
+          email: customer.email,
+        },
+        items,
+      };
       setOrder(created);
       const boughtCategories = items
         .map((item) => item.category ?? (item.kind as ProductCategory))
@@ -457,7 +475,7 @@ export function CheckoutForm() {
                   {order.items.map((item) => (
                     <li key={`${item.kind}-${item.fullDomain}-${item.productId ?? ""}`}>
                       <b className="order-kind">
-                        {getProductKind(item)}
+                        {productKind(item)}
                       </b>
                       <span className="order-domain">
                         {item.category ? `${CATEGORY_ICON[item.category]} ` : ""}
@@ -478,7 +496,7 @@ export function CheckoutForm() {
                       className="pending"
                     >
                       <span className="step-check">○</span>
-                      {getProductKind(item)} · {item.fullDomain || item.label}
+                      {productKind(item)} · {item.fullDomain || item.label}
                     </li>
                   ))}
                 </ul>

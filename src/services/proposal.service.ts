@@ -16,6 +16,7 @@ import { logAudit, AUDIT } from "@/lib/security/audit";
 import { strongToken, proposalCode } from "@/lib/security/encryption";
 import { notifyEvent } from "@/lib/notifications";
 import { serverLogError } from "@/lib/server-log";
+import { getWebsitePackage } from "@/lib/website-packages";
 import type { AdminContext } from "@/lib/admin";
 import { fail, type ServiceResult } from "./result";
 
@@ -263,7 +264,156 @@ export async function getByToken(token: string): Promise<ServiceResult<{ proposa
     return fail(404, "Proposta não encontrada.");
   }
 
-  return { ok: true, proposal: mapRow(data) };
+return { ok: true, proposal: mapRow(data) };
+}
+
+const BRIEF_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function briefDeadline(timeline: string): string {
+  const weeks = timeline === "3+ months" ? 12 : timeline === "1-2 months" ? 6 : 3;
+  const d = new Date();
+  d.setDate(d.getDate() + weeks * 7);
+  return d.toISOString().slice(0, 10);
+}
+
+export type WebsiteBriefInput = {
+  packageSlug?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  message?: string;
+  timeline?: string;
+};
+
+export async function createWebsiteBrief(
+  input: WebsiteBriefInput,
+  opts: { clientId?: string | null; ip?: string },
+): Promise<ServiceResult<{ proposalToken: string; projectId: string; proposalId: string }>> {
+  const packageSlug = typeof input.packageSlug === "string" ? input.packageSlug.trim() : "";
+  const name = typeof input.name === "string" ? input.name.trim().slice(0, 160) : "";
+  const email = typeof input.email === "string" ? input.email.trim().slice(0, 160) : "";
+  const company = typeof input.company === "string" ? input.company.trim().slice(0, 160) : "";
+  const message = typeof input.message === "string" ? input.message.trim().slice(0, 4000) : "";
+  const phone = typeof input.phone === "string" ? input.phone.trim().slice(0, 40) : "";
+  const timeline = typeof input.timeline === "string" ? input.timeline : "2-4 weeks";
+
+  if (!packageSlug || !name || !BRIEF_EMAIL_RE.test(email) || !message) {
+    return fail(400, "Preencha o nome, um email válido, o pacote e a descrição do projeto.");
+  }
+
+  const pkg = await getWebsitePackage(packageSlug);
+  if (!pkg) {
+    return fail(404, "Pacote não encontrado.");
+  }
+
+  const clientId = opts.clientId ?? null;
+
+  const discountPercent =
+    pkg.basePrice > 0 && pkg.price < pkg.basePrice
+      ? Math.round(((pkg.basePrice - pkg.price) / pkg.basePrice) * 100)
+      : 0;
+  const draft: ProposalDraft = {
+    title: company || name,
+    clientName: name,
+    clientEmail: email,
+    clientCompany: company,
+    lines: [
+      {
+        key: "website",
+        label: pkg.name,
+        detail: pkg.description ?? "",
+        qty: 1,
+        unitPrice: pkg.price,
+      },
+    ],
+    discountPercent,
+    taxRate: 15,
+    validityDays: 30,
+    notes: message,
+  };
+  const computed = computeProposal(draft);
+
+  const projectTitle = company ? `${pkg.name} — ${company}` : `${pkg.name} — ${name}`;
+  const { data: project, error: projectErr } = await supabaseAdmin
+    .from("projects")
+    .insert({
+      client_id: clientId,
+      title: projectTitle.slice(0, 200),
+      description: message.slice(0, 2000),
+      category: "Website",
+      status: "brief",
+      budget: pkg.price,
+      start_date: new Date().toISOString().slice(0, 10),
+      deadline: briefDeadline(timeline),
+    })
+    .select("id")
+    .single();
+  if (projectErr || !project) {
+    serverLogError("service:proposal.createWebsiteBrief.project", projectErr ?? new Error("project insert failed"));
+    return fail(500, "Não foi possível criar o projeto.");
+  }
+
+  const token = strongToken(16);
+  const { data: proposal, error: proposalErr } = await supabaseAdmin
+    .from("proposals")
+    .insert({
+      code: proposalCode(),
+      token,
+      title: (company || name).slice(0, 160),
+      client_name: name,
+      client_email: email,
+      client_company: company,
+      services: draft.lines,
+      subtotal: computed.subtotal,
+      discount_percent: computed.discountPercent,
+      discount_amount: computed.discountAmount,
+      tax_rate: computed.taxRate,
+      tax_amount: computed.taxAmount,
+      total: computed.total,
+      validity_days: 30,
+      notes: message.slice(0, 2000),
+      status: "sent",
+      project_id: project.id,
+    })
+    .select("id")
+    .single();
+  if (proposalErr || !proposal) {
+    serverLogError("service:proposal.createWebsiteBrief.proposal", proposalErr ?? new Error("proposal insert failed"));
+    await supabaseAdmin.from("projects").delete().eq("id", project.id);
+    return fail(500, "Não foi possível criar a proposta.");
+  }
+
+  await logAudit({
+    action: AUDIT.PROPOSAL_CREATED,
+    entity: "proposal",
+    entityId: proposal.id ? String(proposal.id) : undefined,
+    actorId: clientId ?? undefined,
+    ip: opts.ip,
+    meta: { source: "website-brief", package: pkg.slug, total: computed.total },
+  });
+  await logAudit({
+    action: AUDIT.PROJECT_BRIEF,
+    entity: "project",
+    entityId: project.id ? String(project.id) : undefined,
+    actorId: clientId ?? undefined,
+    ip: opts.ip,
+    meta: { package: pkg.slug, proposalId: proposal.id ? String(proposal.id) : undefined, phone },
+  });
+
+  await notifyEvent("website.brief", {
+    package: pkg.name,
+    clientName: name,
+    company,
+    total: computed.total,
+  });
+
+  return {
+    ok: true,
+    proposalToken: token,
+    projectId: String(project.id),
+    proposalId: String(proposal.id),
+  };
 }
 
 export async function decide(

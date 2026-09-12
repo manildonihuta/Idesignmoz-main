@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -21,32 +21,17 @@ import {
 } from "lucide-react";
 import { card, Empty, Pill, SectionHead, Spinner } from "./views";
 import type { Notify } from "./types";
-import { loadStore, nextId, saveStore } from "./manage-stores";
+import { nextId, useAdminStore } from "./manage-stores";
 import {
   COMMUNICATION_TYPES,
-  CRM_COMMUNICATIONS_KEY,
-  CRM_COMPANIES_KEY,
-  CRM_CONTACTS_KEY,
-  CRM_LEADS_KEY,
-  CRM_NOTES_KEY,
-  CRM_OPPORTUNITIES_KEY,
-  CRM_PROJECTS_KEY,
-  CRM_PROPOSALS_KEY,
   CRM_STAGES,
   LEAD_SOURCES,
-  SEED_COMMUNICATIONS,
-  SEED_COMPANIES,
-  SEED_CONTACTS,
-  SEED_CRM_PROJECTS,
-  SEED_LEADS,
-  SEED_NOTES,
-  SEED_OPPORTUNITIES,
-  SEED_PROPOSALS,
   STAGE_LABEL,
   type CrmCommunication,
   type CrmCompany,
   type CrmContact,
   type CrmLead,
+  type CrmNote,
   type CrmOpportunity,
   type CrmProposal,
   type CrmProject,
@@ -130,18 +115,6 @@ function SaveBar({ onCancel, onSave, busy }: { onCancel: () => void; onSave: () 
   );
 }
 
-function useCrmStore<T>(key: string, seed: T) {
-  const [items, setItems] = useState<T>(() => loadStore(key, seed));
-  const persist = useCallback(
-    (next: T) => {
-      setItems(next);
-      saveStore(key, next);
-    },
-    [key],
-  );
-  return [items, persist] as const;
-}
-
 /* ------------------------------------------------------------------ */
 /* CRM entry — tabbed                                                    */
 /* ------------------------------------------------------------------ */
@@ -223,8 +196,8 @@ function TabBar({ tab, setTab }: { tab: CrmTabId; setTab: (t: CrmTabId) => void 
 /* ------------------------------------------------------------------ */
 
 function PipelineTab({ notify }: { notify: Notify }) {
-  const [opportunities, setOpportunities] = useCrmStore(CRM_OPPORTUNITIES_KEY, SEED_OPPORTUNITIES);
-  const companies = loadStore(CRM_COMPANIES_KEY, SEED_COMPANIES);
+  const [opportunities, setOpportunities] = useAdminStore<CrmOpportunity[]>("opportunities", () => []);
+  const [companies] = useAdminStore<CrmCompany[]>("companies", () => []);
 
   const byStage = useMemo(() => {
     const map = new Map<CrmStageId, CrmOpportunity[]>();
@@ -338,7 +311,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 type LeadForm = Omit<CrmLead, "id" | "createdAt">;
 
 export function LeadsTab({ notify }: { notify: Notify }) {
-  const [leads, setLeads] = useCrmStore(CRM_LEADS_KEY, SEED_LEADS);
+  const [leads, setLeads] = useAdminStore<CrmLead[]>("leads", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CrmLead | null>(null);
   const [draft, setDraft] = useState<LeadForm>({
@@ -470,8 +443,8 @@ export function LeadsTab({ notify }: { notify: Notify }) {
 /* ------------------------------------------------------------------ */
 
 export function ContactsTab({ notify }: { notify: Notify }) {
-  const [contacts, setContacts] = useCrmStore(CRM_CONTACTS_KEY, SEED_CONTACTS);
-  const [companies] = useCrmStore(CRM_COMPANIES_KEY, SEED_COMPANIES);
+  const [contacts, setContacts] = useAdminStore<CrmContact[]>("contacts", () => []);
+  const [companies] = useAdminStore<CrmCompany[]>("companies", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CrmContact | null>(null);
   const [draft, setDraft] = useState({ name: "", email: "", phone: "", role: "", companyId: "" });
@@ -563,7 +536,7 @@ export function ContactsTab({ notify }: { notify: Notify }) {
 /* ------------------------------------------------------------------ */
 
 export function CompaniesTab({ notify }: { notify: Notify }) {
-  const [companies, setCompanies] = useCrmStore(CRM_COMPANIES_KEY, SEED_COMPANIES);
+  const [companies, setCompanies] = useAdminStore<CrmCompany[]>("companies", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CrmCompany | null>(null);
   const [draft, setDraft] = useState({ name: "", industry: "", location: "", website: "", email: "", phone: "", size: "1–10" });
@@ -660,8 +633,8 @@ export function CompaniesTab({ notify }: { notify: Notify }) {
 /* ------------------------------------------------------------------ */
 
 export function OpportunitiesTab({ notify }: { notify: Notify }) {
-  const [opportunities, setOpportunities] = useCrmStore(CRM_OPPORTUNITIES_KEY, SEED_OPPORTUNITIES);
-  const companies = loadStore(CRM_COMPANIES_KEY, SEED_COMPANIES);
+  const [opportunities, setOpportunities] = useAdminStore<CrmOpportunity[]>("opportunities", () => []);
+  const [companies] = useAdminStore<CrmCompany[]>("companies", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CrmOpportunity | null>(null);
   const [draft, setDraft] = useState({ title: "", companyId: "", stage: "lead" as CrmStageId, value: 0, probability: 20, expectedClose: "", owner: "IDesign" });
@@ -761,8 +734,8 @@ export function OpportunitiesTab({ notify }: { notify: Notify }) {
 /* ------------------------------------------------------------------ */
 
 export function ProposalsTab({ notify }: { notify: Notify }) {
-  const [proposals, setProposals] = useCrmStore(CRM_PROPOSALS_KEY, SEED_PROPOSALS);
-  const companies = loadStore(CRM_COMPANIES_KEY, SEED_COMPANIES);
+  const [proposals, setProposals] = useAdminStore<CrmProposal[]>("proposals", () => []);
+  const [companies] = useAdminStore<CrmCompany[]>("companies", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CrmProposal | null>(null);
   const [draft, setDraft] = useState({ title: "", companyId: "", value: 0, status: "draft" as CrmProposal["status"], sentAt: "" });
@@ -861,7 +834,7 @@ export function ProposalsTab({ notify }: { notify: Notify }) {
 /* ------------------------------------------------------------------ */
 
 export function ProjectsTab({ notify }: { notify: Notify }) {
-  const [projects, setProjects] = useCrmStore(CRM_PROJECTS_KEY, SEED_CRM_PROJECTS);
+  const [projects, setProjects] = useAdminStore<CrmProject[]>("projects", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<CrmProject | null>(null);
   const [draft, setDraft] = useState({ title: "", client: "", service: "", value: 0, status: "onboarding" as CrmProject["status"], progress: 0, start: "" });
@@ -966,9 +939,9 @@ export function ProjectsTab({ notify }: { notify: Notify }) {
 /* ------------------------------------------------------------------ */
 
 export function ActivityTab({ notify }: { notify: Notify }) {
-  const [communications, setCommunications] = useCrmStore(CRM_COMMUNICATIONS_KEY, SEED_COMMUNICATIONS);
-  const [notes, setNotes] = useCrmStore(CRM_NOTES_KEY, SEED_NOTES);
-  const companies = loadStore(CRM_COMPANIES_KEY, SEED_COMPANIES);
+  const [communications, setCommunications] = useAdminStore<CrmCommunication[]>("communications", () => []);
+  const [notes, setNotes] = useAdminStore<CrmNote[]>("notes", () => []);
+  const [companies] = useAdminStore<CrmCompany[]>("companies", () => []);
 
   const [adding, setAdding] = useState(false);
   const [commDraft, setCommDraft] = useState({ type: "call" as CrmCommunication["type"], direction: "out" as CrmCommunication["direction"], subject: "", summary: "", companyId: "" });

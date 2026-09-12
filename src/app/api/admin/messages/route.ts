@@ -1,11 +1,9 @@
 import { NextRequest } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+
 import { requirePermissionRoute } from "@/lib/admin";
+import { setMessageStatus, deleteMessage } from "@/services/crm.service";
 import { csrfError, csrfFailure } from "@/lib/security/csrf";
 import { clientIp } from "@/lib/security/rate-limit";
-import { logAudit, AUDIT } from "@/lib/security/audit";
-import { messageStatusSchema, uuidSchema } from "@/lib/schemas";
-import { serverLogError } from "@/lib/server-log";
 
 export const dynamic = "force-dynamic";
 
@@ -19,40 +17,20 @@ export async function PATCH(request: NextRequest) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch (e) {
-    serverLogError("api:admin/messages", e);
+  } catch {
     return Response.json({ ok: false, error: "Requisição inválida." }, { status: 400 });
   }
 
-  const parsed = messageStatusSchema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json({ ok: false, error: "Dados inválidos." }, { status: 400 });
-  }
-  const { id, status } = parsed.data;
-
-  const { data, error } = await supabaseAdmin
-    .from("contact_messages")
-    .update({ status })
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error || !data) {
-    return Response.json({ ok: false, error: "Mensagem não encontrada." }, { status: 404 });
-  }
-
-  await logAudit({
-    action: AUDIT.MESSAGE_STATUS,
-    entity: "contact_message",
-    entityId: id,
-    actorId: guard.ctx.userId,
-    actorEmail: guard.ctx.email,
-    actorRole: guard.ctx.role,
+  const raw = body as { id?: unknown; status?: unknown };
+  const result = await setMessageStatus(
+    String(raw.id ?? ""),
+    String(raw.status ?? ""),
+    guard.ctx,
     ip,
-    meta: { status },
-  });
+  );
+  if (!result.ok) return Response.json({ ok: false, error: result.error }, { status: result.status });
 
-  return Response.json({ ok: true, message: data });
+  return Response.json({ ok: true, message: result.message });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -65,33 +43,13 @@ export async function DELETE(request: NextRequest) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch (e) {
-    serverLogError("api:admin/messages", e);
+  } catch {
     return Response.json({ ok: false, error: "Requisição inválida." }, { status: 400 });
   }
 
-  const raw = (body as { id?: unknown })?.id;
-  if (!uuidSchema.safeParse(raw).success) {
-    return Response.json({ ok: false, error: "Identificador inválido." }, { status: 400 });
-  }
-  const id = String(raw);
+  const id = String((body as { id?: unknown })?.id ?? "");
+  const result = await deleteMessage(id, guard.ctx, ip);
+  if (!result.ok) return Response.json({ ok: false, error: result.error }, { status: result.status });
 
-  const { error } = await supabaseAdmin.from("contact_messages").delete().eq("id", id);
-
-  if (error) {
-    serverLogError("api:admin/messages", error);
-    return Response.json({ ok: false, error: "Não foi possível eliminar." }, { status: 500 });
-  }
-
-  await logAudit({
-    action: AUDIT.MESSAGE_DELETED,
-    entity: "contact_message",
-    entityId: id,
-    actorId: guard.ctx.userId,
-    actorEmail: guard.ctx.email,
-    actorRole: guard.ctx.role,
-    ip,
-  });
-
-  return Response.json({ ok: true, id });
+  return Response.json({ ok: true, id: result.id });
 }

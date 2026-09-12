@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -24,21 +24,12 @@ import {
   ArrowRight,
 } from "lucide-react";
 import {
-  ADMIN_HOSTING_KEY,
-  CATALOG_KEY,
-  CUSTOMERS_KEY,
-  EXTENSIONS_KEY,
   EXPIRY_POOL,
   RELATED_KINDS,
-  SEED_ADMIN_HOSTING,
-  SEED_CATALOG,
-  SEED_CUSTOMERS,
-  SEED_EXTENSIONS,
   SERVERS,
-  loadStore,
   nextId,
   relatedFor,
-  saveStore,
+  useAdminStore,
   type AdminCatalog,
   type AdminCoupon,
   type AdminCustomer,
@@ -154,7 +145,7 @@ function CustomerForm({
   onCancel: () => void;
 }) {
   const [form, setForm] = useState<AdminCustomer>({
-    id: initial.id ?? nextId("CUST", SEED_CUSTOMERS, 100),
+    id: initial.id ?? "CUST-101",
     name: initial.name ?? "",
     email: initial.email ?? "",
     phone: initial.phone ?? "",
@@ -187,16 +178,13 @@ function CustomerForm({
 }
 
 export function CustomersView({ notify }: { notify: Notify }) {
-  const [customers, setCustomers] = useState<AdminCustomer[]>(() => loadStore(CUSTOMERS_KEY, SEED_CUSTOMERS));
+  const [customers, setCustomers] = useAdminStore<AdminCustomer[]>("customers", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminCustomer | null>(null);
   const [selected, setSelected] = useState<AdminCustomer | null>(null);
   const [tab, setTab] = useState<RelatedKind>("Pedidos");
 
-  const persist = useCallback((next: AdminCustomer[]) => {
-    setCustomers(next);
-    saveStore(CUSTOMERS_KEY, next);
-  }, []);
+  const persist = setCustomers;
 
   const active = customers.filter((c) => c.status === "Ativo").length;
   const selectedRow = selected ? customers.find((c) => c.id === selected.id) ?? null : null;
@@ -522,14 +510,11 @@ function CatalogEditor({
 /* ------------------------------------------------------------------ */
 
 export function ProductsView({ notify }: { notify: Notify }) {
-  const [catalog, setCatalog] = useState<AdminCatalog>(() => loadStore(CATALOG_KEY, SEED_CATALOG));
+  const [catalog, setCatalog] = useAdminStore<AdminCatalog>("catalog", () => ({ categories: [], products: [], plans: [], coupons: [] }));
   const [tab, setTab] = useState<"Produtos" | "Planos" | "Categorias" | "Cupões">("Produtos");
   const [catDraft, setCatDraft] = useState<string>("");
 
-  const persist = useCallback((next: AdminCatalog) => {
-    setCatalog(next);
-    saveStore(CATALOG_KEY, next);
-  }, []);
+  const persist = setCatalog;
 
   const addCategory = () => {
     const name = catDraft.trim();
@@ -734,11 +719,8 @@ export function ProductsView({ notify }: { notify: Notify }) {
 /* ------------------------------------------------------------------ */
 
 export function DomainsAdminView({ notify }: { notify: Notify }) {
-  const [extensions, setExtensions] = useState<AdminExtension[]>(() => loadStore(EXTENSIONS_KEY, SEED_EXTENSIONS));
-  const persist = useCallback((next: AdminExtension[]) => {
-    setExtensions(next);
-    saveStore(EXTENSIONS_KEY, next);
-  }, []);
+  const [extensions, setExtensions] = useAdminStore<AdminExtension[]>("extensions", () => []);
+  const persist = setExtensions;
   const available = extensions.filter((e) => e.available).length;
   const registered = extensions.filter((e) => !e.available).length;
 
@@ -906,13 +888,10 @@ function HostingPlanForm({
 }
 
 export function HostingAdminView({ notify }: { notify: Notify }) {
-  const [plans, setPlans] = useState<AdminHostingPlanRow[]>(() => loadStore(ADMIN_HOSTING_KEY, SEED_ADMIN_HOSTING));
+  const [plans, setPlans] = useAdminStore<AdminHostingPlanRow[]>("hosting", () => []);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminHostingPlanRow | null>(null);
-  const persist = useCallback((next: AdminHostingPlanRow[]) => {
-    setPlans(next);
-    saveStore(ADMIN_HOSTING_KEY, next);
-  }, []);
+  const persist = setPlans;
 
   return (
     <div className="space-y-6">

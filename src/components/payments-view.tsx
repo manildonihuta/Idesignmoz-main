@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import {
-  fmtMT,
-  PAYMENT_METHODS,
-  type PaymentMethod,
-} from "@/lib/payments";
 import type { ClientPayment } from "@/lib/client-data";
+
+type PaymentMethod = {
+  id: string;
+  name: string;
+  description: string;
+  kind: string;
+  enabled: boolean;
+};
+
+function fmtMT(value: number): string {
+  return new Intl.NumberFormat("pt-MZ", { maximumFractionDigits: 0 }).format(value);
+}
 
 function fmtDate(iso: string): string {
   try {
@@ -41,31 +48,24 @@ function TransactionRow({ tx }: { tx: ClientPayment }) {
 }
 
 export function PaymentsView({ payments }: { payments: ClientPayment[] }) {
-  const [methods, setMethods] = useState<PaymentMethod[]>(PAYMENT_METHODS);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newLabel, setNewLabel] = useState("");
-  const [newDetail, setNewDetail] = useState("");
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
 
-  const setPrimary = (id: string) => {
-    setMethods((current) => current.map((m) => ({ ...m, primary: m.id === id })));
-  };
-
-  const addMethod = () => {
-    if (!newLabel.trim()) return;
-    setMethods((current) => [
-      ...current,
-      {
-        id: `custom-${current.length + 1}`,
-        label: newLabel.trim(),
-        detail: newDetail.trim() || "—",
-        status: "Active",
-        primary: false,
-      },
-    ]);
-    setNewLabel("");
-    setNewDetail("");
-    setShowAdd(false);
-  };
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/payments/methods")
+      .then((res) => res.json())
+      .then((data: { ok?: boolean; methods?: PaymentMethod[] }) => {
+        if (!cancelled && Array.isArray(data.methods)) {
+          setMethods(data.methods.filter((m) => m.enabled));
+        }
+      })
+      .catch(() => {
+        /* ignore — methods are informational */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -76,70 +76,35 @@ export function PaymentsView({ payments }: { payments: ClientPayment[] }) {
         <p className="text-muted">Histórico de transacções e métodos de pagamento.</p>
       </div>
 
-      <div className="payment-block">
-        <div className="payment-block-head">
-          <div>
-            <span className="order-label">Métodos de pagamento</span>
-            <h3>Cartões e carteiras</h3>
-          </div>
-          <button
-            className="outline-button"
-            type="button"
-            onClick={() => setShowAdd((v) => !v)}
-          >
-            + Adicionar
-          </button>
-        </div>
-
-        {showAdd ? (
-          <div className="ticket-form" style={{ marginBottom: 16 }}>
-            <div className="ticket-form-grid">
-              <input
-                className="profile-input"
-                placeholder="Nome do método (ex.: mKesh)"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-              />
-              <input
-                className="profile-input"
-                placeholder="Detalhe (número, cartão…)"
-                value={newDetail}
-                onChange={(e) => setNewDetail(e.target.value)}
-              />
-            </div>
-            <div className="ticket-actions">
-              <button className="button" type="button" onClick={addMethod}>
-                Guardar método
-              </button>
+      {methods.length > 0 ? (
+        <div className="payment-block">
+          <div className="payment-block-head">
+            <div>
+              <span className="order-label">Métodos de pagamento</span>
+              <h3>Cartões e carteiras</h3>
             </div>
           </div>
-        ) : null}
 
-        <div className="payment-methods">
-          {methods.map((method) => (
-            <div className="payment-method" key={method.id}>
-              <div className="payment-method-main">
-                <span className="payment-method-icon">{method.label.charAt(0)}</span>
-                <div>
-                  <strong>{method.label}</strong>
-                  <p className="payment-tx-meta">{method.detail}</p>
+          <div className="payment-methods">
+            {methods.map((method) => (
+              <div className="payment-method" key={method.id}>
+                <div className="payment-method-main">
+                  <span className="payment-method-icon">{method.name.charAt(0)}</span>
+                  <div>
+                    <strong>{method.name}</strong>
+                    <p className="payment-tx-meta">{method.description}</p>
+                  </div>
                 </div>
+                {method.enabled ? (
+                  <span className="tx-status paid">Ativo</span>
+                ) : (
+                  <span className="tx-status pending">Inativo</span>
+                )}
               </div>
-              {method.primary ? (
-                <span className="tx-status paid">Primary</span>
-              ) : (
-                <button
-                  className="outline-button"
-                  type="button"
-                  onClick={() => setPrimary(method.id)}
-                >
-                  Tornar principal
-                </button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="payment-block">
         <div className="payment-block-head">

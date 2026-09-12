@@ -13,7 +13,7 @@ import { isCurrencyCode, type CurrencyCode } from "@/lib/currency";
 import { getSiteSettings } from "@/lib/site-settings";
 import { notifyEvent } from "@/lib/notifications";
 import { timingSafeEqualStr } from "@/lib/security/encryption";
-import { serverLogError } from "@/lib/server-log";
+import { serverLogError, serverLogInfo } from "@/lib/server-log";
 import { listClientPayments, type ClientPayment } from "@/lib/client-data";
 import type { AuthContext } from "@/lib/client";
 import { createInvoiceFromOrder } from "./invoice.service";
@@ -411,11 +411,20 @@ export async function confirmByReference(
       : { channels: ["dashboard"] },
   );
 
+  if (options.source) {
+    serverLogInfo("service:payment.confirmByReference", {
+      reference,
+      order: order.number ?? order.id,
+      source: options.source,
+      actorEmail: options.actorEmail ?? null,
+    });
+  }
+
   return { ok: true, already: false, payment, order };
 }
 
 /* --------------------------------------------------------------------- *
- * Webhook — only sustaized by gateways; verified with PAYMENT_WEBHOOK_SECRET.
+ * Webhook — only sustained by gateways; verified with PAYMENT_WEBHOOK_SECRET.
  * --------------------------------------------------------------------- */
 
 export async function handleWebhook(

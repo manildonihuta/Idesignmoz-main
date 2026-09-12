@@ -68,4 +68,5 @@ export const AUDIT = {
   DNS_RECORD_DELETED: "dns.record_deleted",
   DNS_NAMESERVERS_UPDATED: "dns.nameservers_updated",
   DNS_DNSSEC: "dns.dnssec",
+  SETTINGS_UPDATED: "settings.updated",
 } as const;

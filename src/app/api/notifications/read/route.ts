@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
+
 import { requireRolesRoute } from "@/lib/admin";
-import { supabaseAdmin } from "@/lib/supabase-admin";
 import { STAFF_ROLES } from "@/lib/security/rbac";
 import { csrfError, csrfFailure } from "@/lib/security/csrf";
 import { applyRateLimit, rateLimitResponse, clientIp } from "@/lib/security/rate-limit";
 import { serverLogError } from "@/lib/server-log";
+import { markRead } from "@/services/notification.service";
 
 export const dynamic = "force-dynamic";
 
@@ -31,17 +32,9 @@ export async function POST(request: NextRequest) {
     body = {};
   }
 
-  const query = supabaseAdmin
-    .from("notifications")
-    .update({ read_at: new Date().toISOString() })
-    .eq("recipient_id", guard.ctx.userId)
-    .is("read_at", null);
-  const finalQuery = body?.id ? query.eq("id", body.id) : query;
-
-  const { error } = await finalQuery;
-  if (error) {
-    serverLogError("api:notifications/read", error);
-    return Response.json({ ok: false, error: "Não foi possível atualizar." }, { status: 500 });
+  const result = await markRead(guard.ctx, body?.id);
+  if (!result.ok) {
+    return Response.json({ ok: false, error: result.error }, { status: result.status });
   }
 
   return Response.json({ ok: true });

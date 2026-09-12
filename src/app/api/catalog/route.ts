@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getCatalogProductRows, getCrossSellRules, getAnnualDiscount } from "@/lib/content";
+import { catalog } from "@/services/content.service";
 
 export const dynamic = "force-dynamic";
 
@@ -10,18 +10,7 @@ export const dynamic = "force-dynamic";
  * rules and the annual discount; prices/currencies live in the data only.
  */
 export async function GET() {
-  const [products, rules, annualDiscount] = await Promise.all([
-    getCatalogProductRows(),
-    getCrossSellRules(),
-    getAnnualDiscount(),
-  ]);
-
-  const pricingToCatalog: Record<string, string> = {};
-  for (const product of products) {
-    for (const planName of product.for_pricing) {
-      pricingToCatalog[planName] = product.id;
-    }
-  }
+  const { products, rules, pricingToCatalog, annualDiscount } = await catalog();
 
   return NextResponse.json(
     { products, rules, pricingToCatalog, annualDiscount },
