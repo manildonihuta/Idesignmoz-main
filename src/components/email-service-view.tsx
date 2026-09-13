@@ -29,15 +29,168 @@ function fmt(date: string | null): string {
   }
 }
 
+function MailboxFeaturePanel({
+  mailbox,
+  serviceId,
+  onRefresh,
+}: {
+  mailbox: ClientEmailMailbox;
+  serviceId: string;
+  onRefresh: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const [fwdText, setFwdText] = useState(mailbox.forwardTo.join(", "));
+  const [arEnabled, setArEnabled] = useState(mailbox.autoresponder?.enabled ?? false);
+  const [arSubject, setArSubject] = useState(mailbox.autoresponder?.subject ?? "");
+  const [arBody, setArBody] = useState(mailbox.autoresponder?.body ?? "");
+  const [arFromName, setArFromName] = useState(mailbox.autoresponder?.fromName ?? "");
+
+  const saveForwarding = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const forwardTo = fwdText
+        .split(/[,\n]+/)
+        .map((v) => v.trim().toLowerCase())
+        .filter(Boolean);
+      const res = await fetch(`/api/email/services/${serviceId}/mailboxes/${mailbox.id}/forwarding`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forwardTo }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Falha ao guardar o reencaminhamento.");
+        return;
+      }
+      setNotice("Reencaminhamento guardado.");
+      await onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveAutoresponder = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/email/services/${serviceId}/mailboxes/${mailbox.id}/autoresponder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: arEnabled,
+          subject: arSubject,
+          body: arBody,
+          fromName: arFromName || undefined,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Falha ao guardar o respondedor automático.");
+        return;
+      }
+      setNotice("Respondedor automático guardado.");
+      await onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 border-t border-line pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="text-sm font-medium text-muted hover:text-text"
+      >
+        {open ? "▾" : "▸"} Funcionalidades
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-4">
+          {error && <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</div>}
+          {notice && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700">{notice}</div>}
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Reencaminhamento</h3>
+            <p className="text-xs text-muted">Lista de endereços separados por vírgula. Vazio desativa o reencaminhamento.</p>
+            <textarea
+              value={fwdText}
+              onChange={(e) => setFwdText(e.target.value)}
+              rows={2}
+              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-sm"
+              placeholder="destino1@site.com, destino2@outro.pt"
+            />
+            <button className="outline-button px-3 py-1 text-xs" disabled={busy} onClick={saveForwarding}>
+              Guardar reencaminhamento
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold">Respondedor automático</h3>
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={arEnabled}
+                  onChange={(e) => setArEnabled(e.target.checked)}
+                  className="accent-emerald-600"
+                />
+                Ativo
+              </label>
+            </div>
+            <input
+              type="text"
+              value={arSubject}
+              onChange={(e) => setArSubject(e.target.value)}
+              disabled={!arEnabled}
+              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-sm disabled:opacity-50"
+              placeholder="Assunto da resposta"
+            />
+            <textarea
+              value={arBody}
+              onChange={(e) => setArBody(e.target.value)}
+              disabled={!arEnabled}
+              rows={4}
+              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-sm disabled:opacity-50"
+              placeholder="Mensagem automática (suporta HTML simples)"
+            />
+            <input
+              type="text"
+              value={arFromName}
+              onChange={(e) => setArFromName(e.target.value)}
+              disabled={!arEnabled}
+              className="w-full rounded-md border border-line bg-panel px-3 py-2 text-sm disabled:opacity-50"
+              placeholder="Nome remetente (opcional)"
+            />
+            <button className="outline-button px-3 py-1 text-xs" disabled={busy} onClick={saveAutoresponder}>
+              Guardar respondedor
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EmailServiceView({ service: initial }: { service: ClientEmailServiceDetail }) {
   const [service, setService] = useState(initial);
   const [localPart, setLocalPart] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [aliasLocal, setAliasLocal] = useState("");
+  const [aliasDest, setAliasDest] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyMailbox, setBusyMailbox] = useState<string | null>(null);
+  const [busyAlias, setBusyAlias] = useState<string | null>(null);
 
   const status = SERVICE_STATUS[service.status] ?? { label: service.status, tone: "" };
   const mbStatus = (s: string) => MAILBOX_STATUS[s] ?? { label: s, tone: "" };
@@ -122,6 +275,51 @@ export function EmailServiceView({ service: initial }: { service: ClientEmailSer
       service.mailboxes.filter((m) => m.status === "active").length < service.mailboxLimit,
     [service],
   );
+
+  const createAlias = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/email/services/${service.id}/aliases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ localPart: aliasLocal, destination: aliasDest }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; alias?: { aliasAddress?: string } };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Não foi possível criar o alias.");
+        return;
+      }
+      setAliasLocal("");
+      setAliasDest("");
+      setNotice(`Alias ${data.alias?.aliasAddress ?? ""} criado.`);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteAlias = async (aliasId: string, aliasAddress: string) => {
+    setError(null);
+    setNotice(null);
+    setBusyAlias(aliasId);
+    try {
+      const res = await fetch(`/api/email/services/${service.id}/aliases/${aliasId}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Falha ao remover o alias.");
+        return;
+      }
+      setNotice(`Alias ${aliasAddress} removido.`);
+      await refresh();
+    } finally {
+      setBusyAlias(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -268,9 +466,76 @@ export function EmailServiceView({ service: initial }: { service: ClientEmailSer
                     Remover
                   </button>
                 </div>
+                {m.status === "active" && (
+                  <MailboxFeaturePanel mailbox={m} serviceId={service.id} onRefresh={refresh} />
+                )}
               </div>
             );
           })
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="font-display-2 text-lg font-semibold">
+          Aliases ({service.aliases.length})
+        </h2>
+
+        {service.status === "active" && (
+          <form onSubmit={createAlias} className="rounded-xl border border-line bg-surface p-5 space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs text-muted">Nome do alias</span>
+                <input
+                  type="text"
+                  required
+                  pattern="[a-zA-Z0-9._-]+"
+                  placeholder="vendas"
+                  value={aliasLocal}
+                  onChange={(e) => setAliasLocal(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm"
+                />
+                <span className="text-xs text-muted">@{service.domain}</span>
+              </label>
+              <label className="block">
+                <span className="text-xs text-muted">Destino (caixa ou endereço externo)</span>
+                <input
+                  type="email"
+                  required
+                  placeholder="info@site.com"
+                  value={aliasDest}
+                  onChange={(e) => setAliasDest(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <button type="submit" disabled={busy} className="button">
+              {busy ? "A criar…" : "Criar alias"}
+            </button>
+          </form>
+        )}
+
+        {!service.aliases.length ? (
+          <div className="rounded-xl border border-line bg-surface p-6 text-sm text-muted">
+            Ainda não tem aliases. Um alias reencaminha um endereço para uma caixa (ex.: vendas@ → info@).
+          </div>
+        ) : (
+          service.aliases.map((a) => (
+            <div key={a.id} className="flex items-center justify-between gap-4 rounded-xl border border-line bg-surface p-4">
+              <div>
+                <div className="text-base font-semibold">{a.aliasAddress}</div>
+                <div className="text-sm text-muted">→ {a.destination}</div>
+              </div>
+              <button
+                className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                disabled={busyAlias === a.id}
+                onClick={() => {
+                  if (window.confirm(`Remover o alias ${a.aliasAddress}?`)) deleteAlias(a.id, a.aliasAddress);
+                }}
+              >
+                Remover
+              </button>
+            </div>
+          ))
         )}
       </div>
     </div>

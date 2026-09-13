@@ -63,6 +63,36 @@ export type MailboxProviderResult = EmailProviderResult & {
   meta?: Record<string, unknown>;
 };
 
+/** Payload for creating an address alias (a forwarder in cPanel terms). */
+export type AliasProvisionRequest = {
+  aliasAddress: string; // local@domain (the alias)
+  domain: string;
+  destination: string; // where the alias delivers to (mailbox or external)
+};
+
+export type AliasProviderResult = EmailProviderResult & {
+  providerAliasId?: string;
+  meta?: Record<string, unknown>;
+};
+
+/** Identifies an existing alias at the provider. */
+export type AliasRef = {
+  aliasAddress: string;
+  domain: string;
+  destination: string;
+  serviceProviderEmailId: string;
+  providerMeta?: Record<string, unknown>;
+};
+
+/** Autoresponder configuration for a mailbox. Null disables it. */
+export type AutoresponderConfig = {
+  subject: string;
+  body: string;
+  fromName?: string;
+  fromDate?: string;
+  toDate?: string;
+};
+
 /**
  * A concrete email backend. Capabilities declare what the provider can REALLY
  * do — unsupported features are never advertised and stay hidden from the UI.
@@ -89,4 +119,20 @@ export interface EmailProvider {
   suspendMailbox(ref: MailboxRef): Promise<EmailProviderResult>;
   reactivateMailbox(ref: MailboxRef): Promise<EmailProviderResult>;
   deleteMailbox(ref: MailboxRef): Promise<EmailProviderResult>;
+
+  /** Aliases / forwarders (requires the `aliases` capability). */
+  createAlias(req: AliasProvisionRequest): Promise<AliasProviderResult>;
+  deleteAlias(ref: AliasRef): Promise<EmailProviderResult>;
+
+  /**
+   * Replaces mailbox forwarding destinations (requires `forwarding`).
+   * Pass an empty array to clear all forwarders of the mailbox.
+   */
+  setForwarding(ref: MailboxRef, forwardTo: string[]): Promise<EmailProviderResult>;
+
+  /**
+   * Configures the autoresponder (requires `autoresponder`).
+   * Null disables it.
+   */
+  setAutoresponder(ref: MailboxRef, config: AutoresponderConfig | null): Promise<EmailProviderResult>;
 }

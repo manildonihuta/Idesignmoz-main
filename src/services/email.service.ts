@@ -10,7 +10,26 @@ import type { AuthContext } from "@/lib/client";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LOCAL_PART_RE = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
+const MAX_FORWARD_TO = 10;
+
+export type EmailAliasView = {
+  id: string;
+  aliasAddress: string;
+  destination: string;
+  status: string;
+  createdAt: string | null;
+};
+
+export type EmailAutoresponderView = {
+  enabled: boolean;
+  subject: string;
+  body: string;
+  fromName: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+} | null;
 
 export type EmailMailboxView = {
   id: string;
@@ -22,6 +41,8 @@ export type EmailMailboxView = {
   quotaPercent: number;
   accessedAt: string | null;
   createdAt: string | null;
+  forwardTo: string[];
+  autoresponder: EmailAutoresponderView;
 };
 
 export type EmailServiceDetail = {
@@ -36,6 +57,7 @@ export type EmailServiceDetail = {
   providerLabel: string | null;
   providerMode: string | null;
   mailboxes: EmailMailboxView[];
+  aliases: EmailAliasView[];
   usage: { storageUsedGb: number; mailboxesUsed: number };
 };
 
@@ -80,10 +102,16 @@ export async function getEmailServiceDetail(
     return asFailure(e);
   }
 
-  const [mailboxesRes, usageRes] = await Promise.all([
+  const [mailboxesRes, aliasesRes, usageRes] = await Promise.all([
     supabaseAdmin
       .from("email_mailboxes")
-      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at")
+      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+      .eq("email_service_id", service.id)
+      .not("status", "eq", "deleted")
+      .order("created_at", { ascending: true }),
+    supabaseAdmin
+      .from("email_aliases")
+      .select("id, alias_address, destination, status, created_at")
       .eq("email_service_id", service.id)
       .not("status", "eq", "deleted")
       .order("created_at", { ascending: true }),
@@ -109,16 +137,13 @@ export async function getEmailServiceDetail(
       expiresAt: service.expires_at ?? null,
       providerLabel: stringMeta(service.meta, "providerLabel"),
       providerMode: stringMeta(service.meta, "providerMode"),
-      mailboxes: (mailboxesRes.data ?? []).map((m) => ({
-        id: m.id,
-        emailAddress: m.email_address,
-        displayName: m.display_name ?? null,
-        status: m.status,
-        storageLimitGb: Number(m.storage_limit_gb ?? 0),
-        storageUsedGb: Number(m.storage_used_gb ?? 0),
-        quotaPercent: Number(m.quota_percent ?? 0),
-        accessedAt: m.accessed_at ?? null,
-        createdAt: m.created_at ?? null,
+      mailboxes: (mailboxesRes.data ?? []).map((m) => toMailboxView(m)),
+      aliases: (aliasesRes.data ?? []).map((a) => ({
+        id: a.id,
+        aliasAddress: a.alias_address,
+        destination: a.destination,
+        status: a.status,
+        createdAt: a.created_at ?? null,
       })),
       usage: {
         storageUsedGb: Number(usageRow.storage_used_gb ?? 0),
@@ -210,7 +235,7 @@ export async function createMailbox(
       quota_percent: 0,
       meta: { provider: selection.provider.id, providerMode: selection.mode },
     })
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
     .single();
   if (insertErr) {
     serverLogError("service:email.mailbox.insert", insertErr);
@@ -255,7 +280,7 @@ export async function mailboxAction(
 
   const { data: mailbox, error } = await supabaseAdmin
     .from("email_mailboxes")
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, provider_mailbox_id")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, provider_mailbox_id")
     .eq("id", mailboxId)
     .eq("email_service_id", service.id)
     .maybeSingle();
@@ -310,11 +335,20 @@ export async function mailboxAction(
     .from("email_mailboxes")
     .update(update)
     .eq("id", mailbox.id)
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
     .single();
   if (updErr) {
     serverLogError("service:email.mailbox.update", updErr);
     return fail(500, "Não foi possível guardar o novo estado da caixa.");
+  }
+
+  if (action === "delete" && mailbox.email_address) {
+    await supabaseAdmin
+      .from("email_aliases")
+      .update({ status: "deleted", updated_at: new Date().toISOString() })
+      .eq("email_service_id", service.id)
+      .eq("destination", mailbox.email_address)
+      .not("status", "eq", "deleted");
   }
 
   if (action !== "delete") await refreshUsage(service.id);
@@ -342,6 +376,412 @@ export async function mailboxAction(
   });
 
   return { ok: true, mailbox: toMailboxView(updated) };
+}
+
+export async function createAlias(
+  ctx: AuthContext,
+  serviceId: string,
+  input: { localPart?: unknown; destination?: unknown },
+): Promise<ServiceResult<{ alias: EmailAliasView }>> {
+  let service: EmailServiceRow;
+  try {
+    service = await ownedService(ctx, serviceId);
+  } catch (e) {
+    return asFailure(e);
+  }
+
+  if (service.status !== "active") {
+    return fail(409, "O serviço de email ainda não está ativo.");
+  }
+
+  const localPart = String(input.localPart ?? "").trim().toLowerCase();
+  if (!LOCAL_PART_RE.test(localPart) || localPart.length > 64) {
+    return fail(400, "Nome do alias inválido (letras, números, ponto, hífen e _).");
+  }
+  const destination = String(input.destination ?? "").trim().toLowerCase();
+  if (!EMAIL_RE.test(destination) || destination.length > 254) {
+    return fail(400, "Endereço de destino inválido.");
+  }
+
+  const aliasAddress = `${localPart}@${service.domain}`;
+  if (aliasAddress === destination) {
+    return fail(400, "O alias e o destino não podem ser iguais.");
+  }
+
+  const { data: existingAlias } = await supabaseAdmin
+    .from("email_aliases")
+    .select("id")
+    .eq("email_service_id", service.id)
+    .eq("alias_address", aliasAddress)
+    .not("status", "eq", "deleted")
+    .maybeSingle();
+  if (existingAlias) {
+    return fail(409, "Já existe um alias com este endereço.");
+  }
+
+  const { data: existingMailbox } = await supabaseAdmin
+    .from("email_mailboxes")
+    .select("id")
+    .eq("email_service_id", service.id)
+    .eq("email_address", aliasAddress)
+    .not("status", "eq", "deleted")
+    .maybeSingle();
+  if (existingMailbox) {
+    return fail(409, "Já existe uma caixa com este endereço.");
+  }
+
+  const selection = selectEmailProvider();
+  let providerResult;
+  try {
+    providerResult = await selection.provider.createAlias({ aliasAddress, domain: service.domain, destination });
+  } catch (e) {
+    serverLogError("service:email.alias.create", e);
+    return fail(503, e instanceof Error ? e.message : "Não foi possível criar o alias no fornecedor.");
+  }
+  if (!providerResult.ok) {
+    return fail(503, providerResult.message ?? "Não foi possível criar o alias no fornecedor.");
+  }
+
+  const { data: alias, error: insertErr } = await supabaseAdmin
+    .from("email_aliases")
+    .insert({
+      email_service_id: service.id,
+      alias_address: aliasAddress,
+      destination,
+      status: "active",
+      provider_alias_id: providerResult.providerAliasId ?? null,
+      meta: { provider: selection.provider.id, providerMode: selection.mode },
+    })
+    .select("id, alias_address, destination, status, created_at")
+    .single();
+  if (insertErr) {
+    serverLogError("service:email.alias.insert", insertErr);
+    return fail(409, "Já existe um alias com este endereço ou o registo falhou.");
+  }
+
+  await logEmailActivity({
+    serviceId: service.id,
+    actor: ctx.userId,
+    action: "alias.created",
+    details: { aliasAddress, destination, provider: selection.provider.id },
+  });
+  await logAudit({
+    action: AUDIT.EMAIL_ALIAS_CREATED,
+    entity: "email_alias",
+    entityId: alias.id,
+    actorId: ctx.userId,
+    actorEmail: ctx.email,
+    meta: { serviceId: service.id, aliasAddress, destination },
+  });
+
+  return {
+    ok: true,
+    alias: {
+      id: alias.id,
+      aliasAddress: alias.alias_address,
+      destination: alias.destination,
+      status: alias.status,
+      createdAt: alias.created_at ?? null,
+    },
+  };
+}
+
+export async function aliasAction(
+  ctx: AuthContext,
+  serviceId: string,
+  aliasId: string,
+): Promise<ServiceResult<{ alias: EmailAliasView }>> {
+  let service: EmailServiceRow;
+  try {
+    service = await ownedService(ctx, serviceId);
+  } catch (e) {
+    return asFailure(e);
+  }
+  if (!UUID_RE.test(aliasId)) {
+    return fail(400, "Identificador de alias inválido.");
+  }
+
+  const { data: alias, error } = await supabaseAdmin
+    .from("email_aliases")
+    .select("id, alias_address, destination, status, created_at, provider_alias_id")
+    .eq("id", aliasId)
+    .eq("email_service_id", service.id)
+    .maybeSingle();
+  if (error || !alias) {
+    return fail(404, "Alias não encontrado.");
+  }
+  if (alias.status === "deleted") {
+    return fail(409, "O alias já foi removido.");
+  }
+
+  const selection = selectEmailProvider();
+  try {
+    const providerResult = await selection.provider.deleteAlias({
+      aliasAddress: alias.alias_address,
+      domain: service.domain,
+      destination: alias.destination,
+      serviceProviderEmailId: String(service.provider_email_id ?? ""),
+      providerMeta: (service.meta ?? {}) as Record<string, unknown>,
+    });
+    if (!providerResult.ok) {
+      return fail(503, providerResult.message ?? "Falha na remoção junto do fornecedor.");
+    }
+  } catch (e) {
+    serverLogError("service:email.alias.delete", e);
+    return fail(503, e instanceof Error ? e.message : "Falha na remoção junto do fornecedor.");
+  }
+
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from("email_aliases")
+    .update({ status: "deleted", updated_at: new Date().toISOString() })
+    .eq("id", alias.id)
+    .select("id, alias_address, destination, status, created_at")
+    .single();
+  if (updErr) {
+    serverLogError("service:email.alias.update", updErr);
+    return fail(500, "Não foi possível guardar o novo estado do alias.");
+  }
+
+  await logEmailActivity({
+    serviceId: service.id,
+    actor: ctx.userId,
+    action: "alias.deleted",
+    details: { aliasAddress: alias.alias_address },
+  });
+  await logAudit({
+    action: AUDIT.EMAIL_ALIAS_DELETED,
+    entity: "email_alias",
+    entityId: alias.id,
+    actorId: ctx.userId,
+    actorEmail: ctx.email,
+    meta: { serviceId: service.id, aliasAddress: alias.alias_address },
+  });
+
+  return {
+    ok: true,
+    alias: {
+      id: updated.id,
+      aliasAddress: updated.alias_address,
+      destination: updated.destination,
+      status: updated.status,
+      createdAt: updated.created_at ?? null,
+    },
+  };
+}
+
+export async function setMailboxForwarding(
+  ctx: AuthContext,
+  serviceId: string,
+  mailboxId: string,
+  input: { forwardTo?: unknown },
+): Promise<ServiceResult<{ mailbox: EmailMailboxView }>> {
+  let service: EmailServiceRow;
+  try {
+    service = await ownedService(ctx, serviceId);
+  } catch (e) {
+    return asFailure(e);
+  }
+  if (!UUID_RE.test(mailboxId)) {
+    return fail(400, "Identificador de caixa inválido.");
+  }
+
+  const { data: mailbox, error } = await supabaseAdmin
+    .from("email_mailboxes")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, provider_mailbox_id, meta")
+    .eq("id", mailboxId)
+    .eq("email_service_id", service.id)
+    .maybeSingle();
+  if (error || !mailbox) {
+    return fail(404, "Caixa de email não encontrada.");
+  }
+  if (mailbox.status !== "active") {
+    return fail(409, "Só é possível configurar o reencaminhamento numa caixa ativa.");
+  }
+
+  const raw = Array.isArray(input.forwardTo) ? input.forwardTo : [];
+  const forwardTo = [
+    ...new Set(
+      raw
+        .map((v) => String(v ?? "").trim().toLowerCase())
+        .filter((v) => v !== ""),
+    ),
+  ];
+  if (forwardTo.length > MAX_FORWARD_TO) {
+    return fail(400, `O reencaminhamento suporta no máximo ${MAX_FORWARD_TO} destinos.`);
+  }
+  const invalid = forwardTo.find((v) => !EMAIL_RE.test(v));
+  if (invalid) {
+    return fail(400, `Endereço de reencaminhamento inválido: ${invalid}`);
+  }
+  if (forwardTo.includes(mailbox.email_address)) {
+    return fail(400, "A caixa não pode reencaminhar para si própria.");
+  }
+
+  const selection = selectEmailProvider();
+  try {
+    const providerResult = await selection.provider.setForwarding(
+      mailboxRef(service, mailbox),
+      forwardTo,
+    );
+    if (!providerResult.ok) {
+      return fail(503, providerResult.message ?? "Falha ao atualizar o reencaminhamento no fornecedor.");
+    }
+  } catch (e) {
+    serverLogError("service:email.forwarding", e);
+    return fail(503, e instanceof Error ? e.message : "Falha ao atualizar o reencaminhamento no fornecedor.");
+  }
+
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from("email_mailboxes")
+    .update({ forward_to: forwardTo, updated_at: new Date().toISOString() })
+    .eq("id", mailbox.id)
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+    .single();
+  if (updErr) {
+    serverLogError("service:email.forwarding.update", updErr);
+    return fail(500, "Não foi possível guardar o reencaminhamento.");
+  }
+
+  await logEmailActivity({
+    serviceId: service.id,
+    mailboxId: mailbox.id,
+    actor: ctx.userId,
+    action: "mailbox.forwarding.updated",
+    details: { emailAddress: mailbox.email_address, forwardTo },
+  });
+  await logAudit({
+    action: AUDIT.EMAIL_FORWARDING_UPDATED,
+    entity: "email_mailbox",
+    entityId: mailbox.id,
+    actorId: ctx.userId,
+    actorEmail: ctx.email,
+    meta: { serviceId: service.id, emailAddress: mailbox.email_address, forwardTo },
+  });
+
+  return { ok: true, mailbox: toMailboxView(updated) };
+}
+
+export async function setMailboxAutoresponder(
+  ctx: AuthContext,
+  serviceId: string,
+  mailboxId: string,
+  input: {
+    enabled?: unknown;
+    subject?: unknown;
+    body?: unknown;
+    fromName?: unknown;
+    fromDate?: unknown;
+    toDate?: unknown;
+  },
+): Promise<ServiceResult<{ mailbox: EmailMailboxView }>> {
+  let service: EmailServiceRow;
+  try {
+    service = await ownedService(ctx, serviceId);
+  } catch (e) {
+    return asFailure(e);
+  }
+  if (!UUID_RE.test(mailboxId)) {
+    return fail(400, "Identificador de caixa inválido.");
+  }
+
+  const { data: mailbox, error } = await supabaseAdmin
+    .from("email_mailboxes")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, provider_mailbox_id, meta")
+    .eq("id", mailboxId)
+    .eq("email_service_id", service.id)
+    .maybeSingle();
+  if (error || !mailbox) {
+    return fail(404, "Caixa de email não encontrada.");
+  }
+  if (mailbox.status !== "active") {
+    return fail(409, "Só é possível configurar o respondedor numa caixa ativa.");
+  }
+
+  const enabled = input.enabled === true;
+  let config: {
+    enabled: boolean;
+    subject: string;
+    body: string;
+    fromName?: string;
+    fromDate?: string;
+    toDate?: string;
+  } | null = null;
+
+  if (enabled) {
+    const subject = String(input.subject ?? "").trim().slice(0, 200);
+    const body = String(input.body ?? "").trim().slice(0, 4000);
+    if (!subject) return fail(400, "Indica o assunto do respondedor automático.");
+    if (!body) return fail(400, "Escreve o corpo da resposta automática.");
+    const fromName = typeof input.fromName === "string" ? input.fromName.trim().slice(0, 80) : "";
+    const fromDate = typeof input.fromDate === "string" ? input.fromDate.trim() : "";
+    const toDate = typeof input.toDate === "string" ? input.toDate.trim() : "";
+    if (fromDate && toDate && new Date(fromDate).getTime() > new Date(toDate).getTime()) {
+      return fail(400, "A data de início não pode ser depois da data de fim.");
+    }
+    config = {
+      enabled: true,
+      subject,
+      body,
+      ...(fromName ? { fromName } : {}),
+      ...(fromDate ? { fromDate } : {}),
+      ...(toDate ? { toDate } : {}),
+    };
+  }
+
+  const selection = selectEmailProvider();
+  try {
+    const providerResult = await selection.provider.setAutoresponder(
+      mailboxRef(service, mailbox),
+      config,
+    );
+    if (!providerResult.ok) {
+      return fail(503, providerResult.message ?? "Falha ao atualizar o respondedor no fornecedor.");
+    }
+  } catch (e) {
+    serverLogError("service:email.autoresponder", e);
+    return fail(503, e instanceof Error ? e.message : "Falha ao atualizar o respondedor no fornecedor.");
+  }
+
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from("email_mailboxes")
+    .update({ autoresponder: config, updated_at: new Date().toISOString() })
+    .eq("id", mailbox.id)
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+    .single();
+  if (updErr) {
+    serverLogError("service:email.autoresponder.update", updErr);
+    return fail(500, "Não foi possível guardar o respondedor.");
+  }
+
+  await logEmailActivity({
+    serviceId: service.id,
+    mailboxId: mailbox.id,
+    actor: ctx.userId,
+    action: "mailbox.autoresponder.updated",
+    details: { emailAddress: mailbox.email_address, enabled },
+  });
+  await logAudit({
+    action: AUDIT.EMAIL_AUTORESPONDER_UPDATED,
+    entity: "email_mailbox",
+    entityId: mailbox.id,
+    actorId: ctx.userId,
+    actorEmail: ctx.email,
+    meta: { serviceId: service.id, emailAddress: mailbox.email_address, enabled },
+  });
+
+  return { ok: true, mailbox: toMailboxView(updated) };
+}
+
+function mailboxRef(
+  service: EmailServiceRow,
+  mailbox: { email_address: string; provider_mailbox_id?: string | null },
+) {
+  return {
+    emailAddress: mailbox.email_address,
+    domain: service.domain,
+    serviceProviderEmailId: String(service.provider_email_id ?? ""),
+    providerMeta: (service.meta ?? {}) as Record<string, unknown>,
+  };
 }
 
 async function refreshUsage(serviceId: string): Promise<void> {
@@ -383,6 +823,9 @@ async function refreshUsage(serviceId: string): Promise<void> {
 }
 
 function toMailboxView(m: Record<string, unknown>): EmailMailboxView {
+  const forwardRaw = Array.isArray(m.forward_to) ? m.forward_to : [];
+  const autoresponderRaw =
+    m.autoresponder && typeof m.autoresponder === "object" ? (m.autoresponder as Record<string, unknown>) : null;
   return {
     id: String(m.id),
     emailAddress: String(m.email_address ?? ""),
@@ -393,7 +836,22 @@ function toMailboxView(m: Record<string, unknown>): EmailMailboxView {
     quotaPercent: Number(m.quota_percent ?? 0),
     accessedAt: m.accessed_at ? String(m.accessed_at) : null,
     createdAt: m.created_at ? String(m.created_at) : null,
+    forwardTo: forwardRaw.map((v) => String(v)),
+    autoresponder: autoresponderRaw
+      ? {
+          enabled: autoresponderRaw.enabled === true,
+          subject: String(autoresponderRaw.subject ?? ""),
+          body: String(autoresponderRaw.body ?? ""),
+          fromName: strOrNull(autoresponderRaw.fromName),
+          fromDate: strOrNull(autoresponderRaw.fromDate),
+          toDate: strOrNull(autoresponderRaw.toDate),
+        }
+      : null,
   };
+}
+
+function strOrNull(v: unknown): string | null {
+  return typeof v === "string" && v ? v : null;
 }
 
 function stringMeta(meta: Record<string, unknown> | null, key: string): string | null {

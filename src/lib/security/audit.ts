@@ -114,4 +114,8 @@ export const AUDIT = {
   EMAIL_MAILBOX_SUSPENDED: "email.mailbox.suspended",
   EMAIL_MAILBOX_REACTIVATED: "email.mailbox.reactivated",
   EMAIL_MAILBOX_DELETED: "email.mailbox.deleted",
+  EMAIL_ALIAS_CREATED: "email.alias.created",
+  EMAIL_ALIAS_DELETED: "email.alias.deleted",
+  EMAIL_FORWARDING_UPDATED: "email.forwarding.updated",
+  EMAIL_AUTORESPONDER_UPDATED: "email.autoresponder.updated",
 } as const;

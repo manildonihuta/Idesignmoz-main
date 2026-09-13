@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => {
         return Promise.resolve({ data: store[table] ?? [], error: null }).then(onfulfilled);
       },
       insert: (row: Row) => {
-        store[table] = [row, ...(store[table] ?? [])].slice(0, 5);
+        store[table] = [row, ...(store[table] ?? [])].slice(0, 20);
         writes.push({ table, op: "insert", row });
         return chain;
       },
@@ -43,23 +43,32 @@ const mocks = vi.hoisted(() => {
     from: (table: string) => makeChain(table),
   };
 
+  const makeProvider = () => ({
+    id: "email-simulated",
+    label: "Email Simulado",
+    configured: false,
+    createMailbox: vi.fn(async (req: Record<string, unknown>) => ({
+      ok: true,
+      providerMailboxId: req.emailAddress,
+    })),
+    suspendMailbox: vi.fn(async () => ({ ok: true })),
+    reactivateMailbox: vi.fn(async () => ({ ok: true })),
+    deleteMailbox: vi.fn(async () => ({ ok: true })),
+    createAlias: vi.fn(async (req: Record<string, unknown>) => ({
+      ok: true,
+      providerAliasId: req.aliasAddress,
+    })),
+    deleteAlias: vi.fn(async () => ({ ok: true })),
+    setForwarding: vi.fn(async () => ({ ok: true })),
+    setAutoresponder: vi.fn(async () => ({ ok: true })),
+  });
+
   const selectEmailProvider = vi.fn(() => ({
-    provider: {
-      id: "email-simulated",
-      label: "Email Simulado",
-      configured: false,
-      createMailbox: vi.fn(async (req: Record<string, unknown>) => ({
-        ok: true,
-        providerMailboxId: req.emailAddress,
-      })),
-      suspendMailbox: vi.fn(async () => ({ ok: true })),
-      reactivateMailbox: vi.fn(async () => ({ ok: true })),
-      deleteMailbox: vi.fn(async () => ({ ok: true })),
-    },
+    provider: makeProvider(),
     mode: "simulated",
   }));
 
-  return { store, writes, makeChain, db, selectEmailProvider };
+  return { store, writes, db, makeProvider, selectEmailProvider };
 });
 
 vi.mock("server-only", () => ({}));
@@ -68,7 +77,15 @@ vi.mock("@/lib/provisioning/email/registry", () => ({
   selectEmailProvider: mocks.selectEmailProvider,
 }));
 
-import { createMailbox, getEmailServiceDetail, mailboxAction } from "@/services/email.service";
+import {
+  createAlias,
+  aliasAction,
+  setMailboxForwarding,
+  setMailboxAutoresponder,
+  createMailbox,
+  getEmailServiceDetail,
+  mailboxAction,
+} from "@/services/email.service";
 import type { AuthContext } from "@/lib/client";
 
 const ctx: AuthContext & { userId: string; email: string } = {
@@ -79,21 +96,14 @@ const ctx: AuthContext & { userId: string; email: string } = {
 
 const SERVICE_ID = "11111111-1111-4111-8111-111111111111";
 const MAILBOX_ID = "22222222-2222-4222-8222-222222222222";
+const ALIAS_ID = "33333333-3333-4333-8333-333333333333";
 const OTHER_USER = "99999999-9999-4999-8999-999999999999";
 
 function reset(): void {
   for (const key of Object.keys(mocks.store)) delete mocks.store[key];
   mocks.writes.length = 0;
   mocks.selectEmailProvider.mockReturnValue({
-    provider: {
-      id: "email-simulated",
-      label: "Email Simulado",
-      configured: false,
-      createMailbox: vi.fn(async (req: Record<string, unknown>) => ({ ok: true, providerMailboxId: req.emailAddress })),
-      suspendMailbox: vi.fn(async () => ({ ok: true })),
-      reactivateMailbox: vi.fn(async () => ({ ok: true })),
-      deleteMailbox: vi.fn(async () => ({ ok: true })),
-    },
+    provider: mocks.makeProvider(),
     mode: "simulated",
   });
 }
@@ -116,6 +126,25 @@ function serviceRow(overrides: Record<string, unknown> = {}): Record<string, unk
   };
 }
 
+function mailboxRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: MAILBOX_ID,
+    email_address: "info@site.com",
+    display_name: null,
+    status: "active",
+    storage_limit_gb: 5,
+    storage_used_gb: 0,
+    quota_percent: 0,
+    accessed_at: null,
+    created_at: null,
+    forward_to: [],
+    autoresponder: null,
+    provider_mailbox_id: "sim:info@site.com",
+    meta: { provider: "email-simulated" },
+    ...overrides,
+  };
+}
+
 beforeEach(() => reset());
 
 describe("getEmailServiceDetail", () => {
@@ -128,15 +157,34 @@ describe("getEmailServiceDetail", () => {
 
   it("returns the service with its mailboxes", async () => {
     mocks.store.email_services = [serviceRow()];
-    mocks.store.email_mailboxes = [
-      { id: MAILBOX_ID, email_address: "info@site.com", display_name: null, status: "active", storage_limit_gb: 5, storage_used_gb: 0, quota_percent: 0, accessed_at: null, created_at: null },
-    ];
+    mocks.store.email_mailboxes = [mailboxRow()];
+    mocks.store.email_aliases = [];
     const result = await getEmailServiceDetail(ctx, SERVICE_ID);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.service.domain).toBe("site.com");
       expect(result.service.mailboxes).toHaveLength(1);
       expect(result.service.mailboxes[0].emailAddress).toBe("info@site.com");
+    }
+  });
+
+  it("returns aliases and mailbox forwarding/autoresponder", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [
+      mailboxRow({ forward_to: ["dest@x.com"], autoresponder: { enabled: true, subject: "Oi", body: "Alo" } }),
+    ];
+    mocks.store.email_aliases = [
+      { id: ALIAS_ID, alias_address: "vendas@site.com", destination: "info@site.com", status: "active", created_at: "2026-01-01T00:00:00Z" },
+    ];
+    mocks.store.email_usage = [];
+
+    const result = await getEmailServiceDetail(ctx, SERVICE_ID);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.service.aliases).toHaveLength(1);
+      expect(result.service.aliases[0].aliasAddress).toBe("vendas@site.com");
+      expect(result.service.mailboxes[0].forwardTo).toEqual(["dest@x.com"]);
+      expect(result.service.mailboxes[0].autoresponder?.enabled).toBe(true);
     }
   });
 });
@@ -210,9 +258,7 @@ describe("createMailbox", () => {
 describe("mailboxAction", () => {
   it("suspends a mailbox owned by the customer", async () => {
     mocks.store.email_services = [serviceRow()];
-    mocks.store.email_mailboxes = [
-      { id: MAILBOX_ID, email_address: "info@site.com", display_name: null, status: "active", storage_limit_gb: 5, storage_used_gb: 0, quota_percent: 0, accessed_at: null, created_at: null, provider_mailbox_id: "x" },
-    ];
+    mocks.store.email_mailboxes = [mailboxRow()];
 
     const result = await mailboxAction(ctx, SERVICE_ID, MAILBOX_ID, "suspend");
     expect(result.ok).toBe(true);
@@ -227,5 +273,198 @@ describe("mailboxAction", () => {
     const result = await mailboxAction(ctx, SERVICE_ID, MAILBOX_ID, "delete");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(403);
+  });
+
+  it("soft-deletes aliases pointing to a removed mailbox", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow({ email_address: "info@site.com" })];
+    mocks.store.email_aliases = [
+      { id: ALIAS_ID, alias_address: "vendas@site.com", destination: "info@site.com", status: "active" },
+    ];
+
+    const result = await mailboxAction(ctx, SERVICE_ID, MAILBOX_ID, "delete");
+    expect(result.ok).toBe(true);
+    expect(mocks.writes.some((w) => w.table === "email_aliases" && w.op === "update" && w.row.status === "deleted")).toBe(true);
+  });
+});
+
+describe("createAlias", () => {
+  it("rejects when service is not owned or active", async () => {
+    mocks.store.email_services = [serviceRow({ customer_id: OTHER_USER })];
+    expect((await createAlias(ctx, SERVICE_ID, { localPart: "vendas", destination: "info@site.com" })).ok).toBe(false);
+
+    reset();
+    mocks.store.email_services = [serviceRow({ status: "provisioning" })];
+    expect((await createAlias(ctx, SERVICE_ID, { localPart: "vendas", destination: "info@site.com" })).ok).toBe(false);
+  });
+
+  it("rejects invalid local part and invalid destination", async () => {
+    mocks.store.email_services = [serviceRow()];
+    expect((await createAlias(ctx, SERVICE_ID, { localPart: "", destination: "info@site.com" })).ok).toBe(false);
+    expect((await createAlias(ctx, SERVICE_ID, { localPart: "vendas", destination: "not-an-email" })).ok).toBe(false);
+  });
+
+  it("rejects self-loop, duplicate alias and mailbox collision", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [];
+    mocks.store.email_aliases = [];
+    expect((await createAlias(ctx, SERVICE_ID, { localPart: "info", destination: "info@site.com" })).ok).toBe(false);
+
+    mocks.store.email_aliases = [{ id: ALIAS_ID, alias_address: "vendas@site.com", status: "active" }];
+    expect((await createAlias(ctx, SERVICE_ID, { localPart: "vendas", destination: "x@site.com" })).ok).toBe(false);
+
+    reset();
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow({ email_address: "vendas@site.com" })];
+    expect((await createAlias(ctx, SERVICE_ID, { localPart: "vendas", destination: "x@site.com" })).ok).toBe(false);
+  });
+
+  it("creates alias and calls the provider", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [];
+    mocks.store.email_aliases = [];
+
+    const result = await createAlias(ctx, SERVICE_ID, { localPart: "vendas", destination: "info@site.com" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.alias.aliasAddress).toBe("vendas@site.com");
+      expect(result.alias.destination).toBe("info@site.com");
+    }
+
+    const provider = mocks.selectEmailProvider.mock.results[0].value.provider;
+    expect(provider.createAlias).toHaveBeenCalledWith(
+      expect.objectContaining({ aliasAddress: "vendas@site.com", destination: "info@site.com" }),
+    );
+
+    const insert = mocks.writes.find((w) => w.op === "insert" && w.table === "email_aliases");
+    expect(insert?.row.alias_address).toBe("vendas@site.com");
+    expect(insert?.row.destination).toBe("info@site.com");
+    expect(insert?.row).not.toHaveProperty("password");
+
+    expect(mocks.writes.some((w) => w.table === "email_activity_logs")).toBe(true);
+  });
+});
+
+describe("aliasAction delete", () => {
+  it("soft-deletes the alias", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_aliases = [
+      { id: ALIAS_ID, alias_address: "vendas@site.com", destination: "info@site.com", status: "active" },
+    ];
+
+    const result = await aliasAction(ctx, SERVICE_ID, ALIAS_ID);
+    expect(result.ok).toBe(true);
+    const update = mocks.writes.find((w) => w.op === "update" && w.table === "email_aliases");
+    expect(update?.row.status).toBe("deleted");
+  });
+
+  it("rejects non-owned service and already deleted alias", async () => {
+    mocks.store.email_services = [serviceRow({ customer_id: OTHER_USER })];
+    mocks.store.email_aliases = [{ id: ALIAS_ID, status: "active" }];
+    expect((await aliasAction(ctx, SERVICE_ID, ALIAS_ID)).ok).toBe(false);
+
+    reset();
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_aliases = [{ id: ALIAS_ID, status: "deleted" }];
+    expect((await aliasAction(ctx, SERVICE_ID, ALIAS_ID)).ok).toBe(false);
+  });
+});
+
+describe("setMailboxForwarding", () => {
+  it("rejects invalid emails, self-loop, and limit", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow()];
+
+    expect((await setMailboxForwarding(ctx, SERVICE_ID, MAILBOX_ID, { forwardTo: ["bad"] })).ok).toBe(false);
+    expect((await setMailboxForwarding(ctx, SERVICE_ID, MAILBOX_ID, { forwardTo: ["info@site.com"] })).ok).toBe(false);
+    expect(
+      (
+        await setMailboxForwarding(ctx, SERVICE_ID, MAILBOX_ID, {
+          forwardTo: ["a@x.com", "b@x.com", "c@x.com", "d@x.com", "e@x.com", "f@x.com", "g@x.com", "h@x.com", "i@x.com", "j@x.com", "k@x.com"],
+        })
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("saves forwarding destinations and calls provider", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow()];
+
+    const result = await setMailboxForwarding(ctx, SERVICE_ID, MAILBOX_ID, {
+      forwardTo: ["dest1@example.com", "Dest2@example.com"],
+    });
+    expect(result.ok).toBe(true);
+
+    const provider = mocks.selectEmailProvider.mock.results[0].value.provider;
+    expect(provider.setForwarding).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAddress: "info@site.com" }),
+      ["dest1@example.com", "dest2@example.com"],
+    );
+
+    const update = mocks.writes.find((w) => w.op === "update" && w.table === "email_mailboxes");
+    expect(update?.row.forward_to).toEqual(["dest1@example.com", "dest2@example.com"]);
+  });
+
+  it("clears forwarding with an empty array", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow({ forward_to: ["old@x.com"] })];
+
+    const result = await setMailboxForwarding(ctx, SERVICE_ID, MAILBOX_ID, { forwardTo: [] });
+    expect(result.ok).toBe(true);
+    const update = mocks.writes.find((w) => w.op === "update" && w.table === "email_mailboxes");
+    expect(update?.row.forward_to).toEqual([]);
+  });
+});
+
+describe("setMailboxAutoresponder", () => {
+  it("rejects enabled autoresponder without subject or body", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow()];
+
+    expect(
+      (await setMailboxAutoresponder(ctx, SERVICE_ID, MAILBOX_ID, { enabled: true, subject: "", body: "hi" })).ok,
+    ).toBe(false);
+    expect(
+      (await setMailboxAutoresponder(ctx, SERVICE_ID, MAILBOX_ID, { enabled: true, subject: "Assunto", body: "" })).ok,
+    ).toBe(false);
+  });
+
+  it("enables autoresponder and calls provider", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow()];
+
+    const result = await setMailboxAutoresponder(ctx, SERVICE_ID, MAILBOX_ID, {
+      enabled: true,
+      subject: "Fora de escritório",
+      body: "Estou ausente.",
+      fromName: "Info",
+    });
+    expect(result.ok).toBe(true);
+
+    const provider = mocks.selectEmailProvider.mock.results[0].value.provider;
+    expect(provider.setAutoresponder).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAddress: "info@site.com" }),
+      expect.objectContaining({ subject: "Fora de escritório", body: "Estou ausente.", fromName: "Info" }),
+    );
+
+    const update = mocks.writes.find((w) => w.op === "update" && w.table === "email_mailboxes");
+    expect(update?.row.autoresponder).toMatchObject({ enabled: true, subject: "Fora de escritório" });
+  });
+
+  it("disables autoresponder and clears config", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow({ autoresponder: { enabled: true, subject: "x", body: "y" } })];
+
+    const result = await setMailboxAutoresponder(ctx, SERVICE_ID, MAILBOX_ID, { enabled: false });
+    expect(result.ok).toBe(true);
+
+    const provider = mocks.selectEmailProvider.mock.results[0].value.provider;
+    expect(provider.setAutoresponder).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAddress: "info@site.com" }),
+      null,
+    );
+
+    const update = mocks.writes.find((w) => w.op === "update" && w.table === "email_mailboxes");
+    expect(update?.row.autoresponder).toBeNull();
   });
 });

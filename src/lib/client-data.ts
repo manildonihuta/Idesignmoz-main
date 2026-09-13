@@ -455,6 +455,15 @@ export async function listClientEmailServices(ctx: AuthContext): Promise<ClientE
   }));
 }
 
+export type ClientEmailAutoresponder = {
+  enabled: boolean;
+  subject: string;
+  body: string;
+  fromName: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+} | null;
+
 export type ClientEmailMailbox = {
   id: string;
   emailAddress: string;
@@ -465,11 +474,22 @@ export type ClientEmailMailbox = {
   quotaPercent: number;
   accessedAt: string | null;
   createdAt: string | null;
+  forwardTo: string[];
+  autoresponder: ClientEmailAutoresponder;
+};
+
+export type ClientEmailAlias = {
+  id: string;
+  aliasAddress: string;
+  destination: string;
+  status: string;
+  createdAt: string | null;
 };
 
 export type ClientEmailServiceDetail = ClientEmailService & {
   providerMode: string | null;
   mailboxes: ClientEmailMailbox[];
+  aliases: ClientEmailAlias[];
   usage: { storageUsedGb: number; mailboxesUsed: number };
 };
 
@@ -488,10 +508,16 @@ export async function getClientEmailService(
     .maybeSingle();
   if (!data) return null;
 
-  const [mailboxesRes, usageRes] = await Promise.all([
+  const [mailboxesRes, aliasesRes, usageRes] = await Promise.all([
     supabaseAdmin
       .from("email_mailboxes")
-      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at")
+      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+      .eq("email_service_id", serviceId)
+      .not("status", "eq", "deleted")
+      .order("created_at", { ascending: true }),
+    supabaseAdmin
+      .from("email_aliases")
+      .select("id, alias_address, destination, status, created_at")
       .eq("email_service_id", serviceId)
       .not("status", "eq", "deleted")
       .order("created_at", { ascending: true }),
@@ -505,6 +531,35 @@ export async function getClientEmailService(
 
   const meta = (data.meta ?? {}) as Record<string, unknown>;
   const usageRow = (usageRes.data?.[0] ?? {}) as Record<string, unknown>;
+
+  const toMailbox = (m: Record<string, unknown>): ClientEmailMailbox => {
+    const forwardRaw = Array.isArray(m.forward_to) ? m.forward_to : [];
+    const autoresponderRaw =
+      m.autoresponder && typeof m.autoresponder === "object" ? (m.autoresponder as Record<string, unknown>) : null;
+    return {
+      id: String(m.id),
+      emailAddress: String(m.email_address),
+      displayName: m.display_name ? String(m.display_name) : null,
+      status: String(m.status),
+      storageLimitGb: Number(m.storage_limit_gb ?? 0),
+      storageUsedGb: Number(m.storage_used_gb ?? 0),
+      quotaPercent: Number(m.quota_percent ?? 0),
+      accessedAt: m.accessed_at ? String(m.accessed_at) : null,
+      createdAt: m.created_at ? String(m.created_at) : null,
+      forwardTo: forwardRaw.map((v: unknown) => String(v)),
+      autoresponder: autoresponderRaw
+        ? {
+            enabled: autoresponderRaw.enabled === true,
+            subject: String(autoresponderRaw.subject ?? ""),
+            body: String(autoresponderRaw.body ?? ""),
+            fromName: typeof autoresponderRaw.fromName === "string" ? autoresponderRaw.fromName : null,
+            fromDate: typeof autoresponderRaw.fromDate === "string" ? autoresponderRaw.fromDate : null,
+            toDate: typeof autoresponderRaw.toDate === "string" ? autoresponderRaw.toDate : null,
+          }
+        : null,
+    };
+  };
+
   return {
     id: data.id,
     domain: data.domain,
@@ -517,16 +572,13 @@ export async function getClientEmailService(
     createdAt: data.created_at ?? null,
     providerLabel: typeof meta.providerLabel === "string" ? meta.providerLabel : null,
     providerMode: typeof meta.providerMode === "string" ? meta.providerMode : null,
-    mailboxes: (mailboxesRes.data ?? []).map((m) => ({
-      id: m.id,
-      emailAddress: m.email_address,
-      displayName: m.display_name ?? null,
-      status: m.status,
-      storageLimitGb: Number(m.storage_limit_gb ?? 0),
-      storageUsedGb: Number(m.storage_used_gb ?? 0),
-      quotaPercent: Number(m.quota_percent ?? 0),
-      accessedAt: m.accessed_at ?? null,
-      createdAt: m.created_at ?? null,
+    mailboxes: (mailboxesRes.data ?? []).map(toMailbox),
+    aliases: (aliasesRes.data ?? []).map((a) => ({
+      id: String(a.id),
+      aliasAddress: String(a.alias_address),
+      destination: String(a.destination),
+      status: String(a.status),
+      createdAt: a.created_at ? String(a.created_at) : null,
     })),
     usage: {
       storageUsedGb: Number(usageRow.storage_used_gb ?? 0),

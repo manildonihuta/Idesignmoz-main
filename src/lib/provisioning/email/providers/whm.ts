@@ -1,6 +1,10 @@
 import "server-only";
 
 import type {
+  AliasProvisionRequest,
+  AliasProviderResult,
+  AliasRef,
+  AutoresponderConfig,
   EmailProvider,
   EmailProviderResult,
   EmailProvisionRequest,
@@ -38,7 +42,7 @@ export const whmEmailProvider: EmailProvider = {
   get configured() {
     return Boolean(process.env.WHM_HOST && process.env.WHM_API_TOKEN);
   },
-  capabilities: ["mailboxes"] as const,
+  capabilities: ["mailboxes", "aliases", "forwarding", "autoresponder"] as const,
 
   async createService(req: EmailProvisionRequest): Promise<EmailProvisionResponse> {
     const creds = whmCreds();
@@ -155,6 +159,105 @@ export const whmEmailProvider: EmailProvider = {
       return { ok: false, message: String(result.errors[0]) };
     }
     return { ok: true, message: `Caixa ${ref.emailAddress} removida.` };
+  },
+
+  async createAlias(req: AliasProvisionRequest): Promise<AliasProviderResult> {
+    const [localPart, domain] = splitAddress(req.aliasAddress);
+    const result = await cpanelCall<{ errors?: unknown[] }>("Email", "add_forwarder", {
+      domain,
+      email: localPart,
+      fwdemail: req.destination,
+    });
+    if (!result.ok) return result;
+    if (result.errors?.length) {
+      return { ok: false, message: String(result.errors[0]) };
+    }
+    return { ok: true, providerAliasId: req.aliasAddress, meta: { cPanel: true } };
+  },
+
+  async deleteAlias(ref: AliasRef): Promise<EmailProviderResult> {
+    const [localPart, domain] = splitAddress(ref.aliasAddress);
+    const result = await cpanelCall<{ errors?: unknown[] }>("Email", "delete_forwarder", {
+      domain,
+      email: localPart,
+      fwdemail: ref.destination,
+    });
+    if (!result.ok) return result;
+    if (result.errors?.length) {
+      return { ok: false, message: String(result.errors[0]) };
+    }
+    return { ok: true, message: `Alias ${ref.aliasAddress} removido.` };
+  },
+
+  async setForwarding(ref: MailboxRef, forwardTo: string[]): Promise<EmailProviderResult> {
+    const [localPart, domain] = splitAddress(ref.emailAddress);
+
+    const list = await cpanelCall<{ data?: { forward?: string; dest?: string }[] }>(
+      "Email",
+      "list_forwarders",
+      { domain },
+    );
+    if (!list.ok) return list;
+    const existing = (list.data ?? []).filter(
+      (f) => String(f.forward ?? "").toLowerCase() === ref.emailAddress,
+    );
+
+    for (const f of existing) {
+      const from = String(f.forward ?? ref.emailAddress);
+      const [fl, fd] = splitAddress(from);
+      const removed = await cpanelCall<{ errors?: unknown[] }>("Email", "delete_forwarder", {
+        domain: fd || domain,
+        email: fl,
+        fwdemail: String(f.dest ?? ""),
+      });
+      if (!removed.ok) return removed;
+    }
+
+    for (const dest of forwardTo) {
+      const added = await cpanelCall<{ errors?: unknown[] }>("Email", "add_forwarder", {
+        domain,
+        email: localPart,
+        fwdemail: dest,
+      });
+      if (!added.ok) return added;
+      if (added.errors?.length) {
+        return { ok: false, message: String(added.errors[0]) };
+      }
+    }
+    return { ok: true, message: "Reencaminhamento atualizado." };
+  },
+
+  async setAutoresponder(
+    ref: MailboxRef,
+    config: AutoresponderConfig | null,
+  ): Promise<EmailProviderResult> {
+    const [localPart, domain] = splitAddress(ref.emailAddress);
+    if (!config) {
+      const result = await cpanelCall<{ errors?: unknown[] }>("Email", "disable_autoresponder", {
+        email: localPart,
+        domain,
+      });
+      if (!result.ok) return result;
+      if (result.errors?.length) {
+        return { ok: false, message: String(result.errors[0]) };
+      }
+      return { ok: true, message: "Respondedor automático desativado." };
+    }
+
+    const result = await cpanelCall<{ errors?: unknown[] }>("Email", "set_autoresponder", {
+      email: localPart,
+      domain,
+      from: config.fromName ?? ref.emailAddress,
+      subject: config.subject,
+      body: config.body,
+      start: config.fromDate ?? "",
+      stop: config.toDate ?? "",
+    });
+    if (!result.ok) return result;
+    if (result.errors?.length) {
+      return { ok: false, message: String(result.errors[0]) };
+    }
+    return { ok: true, message: "Respondedor automático ativado." };
   },
 };
 
