@@ -121,4 +121,6 @@ export const AUDIT = {
   EMAIL_DNS_VERIFIED: "email.dns.verified",
   EMAIL_MAILBOX_PASSWORD_RESET: "email.mailbox.password_reset",
   EMAIL_USAGE_SYNCED: "email.usage.synced",
+  EMAIL_SERVICE_SUSPENDED: "email.service.suspended",
+  EMAIL_SERVICE_REACTIVATED: "email.service.reactivated",
 } as const;

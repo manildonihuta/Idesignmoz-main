@@ -79,5 +79,54 @@ export type AdminData = {
   subscriptions: AdminSubscription[];
 };
 
+export type AdminEmailMailboxRow = {
+  id: string;
+  emailAddress: string;
+  displayName: string | null;
+  status: string;
+  storageLimitGb: number;
+  storageUsedGb: number;
+  quotaPercent: number;
+  accessedAt: string | null;
+  passwordChangedAt: string | null;
+  createdAt: string | null;
+  forwardTo: string[];
+  providerMailboxId: string | null;
+};
+
+export type AdminEmailUsageRow = {
+  storageUsedGb: number;
+  storageLimitGb: number;
+  mailboxesUsed: number;
+  mailboxesLimit: number;
+  recordedAt: string | null;
+};
+
+export type AdminEmailServiceRow = {
+  id: string;
+  domain: string;
+  planName: string;
+  status: string;
+  dnsStatus: string;
+  mailboxLimit: number;
+  storageLimitGb: number;
+  expiresAt: string | null;
+  createdAt: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  providerId: string | null;
+  providerMode: string | null;
+  used: AdminEmailUsageRow;
+};
+
+export type AdminEmailServiceDetail = {
+  service: AdminEmailServiceRow;
+  mailboxes: AdminEmailMailboxRow[];
+  aliases: Array<{ id: string; aliasAddress: string; destination: string; status: string; createdAt: string | null }>;
+  usageHistory: AdminEmailUsageRow[];
+  activity: Array<{ action: string; actorEmail: string | null; createdAt: string }>;
+};
+
 export type Notice = { type: "ok" | "error"; text: string };
 export type Notify = (type: "ok" | "error", text: string) => void;
