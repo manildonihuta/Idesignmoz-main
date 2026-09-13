@@ -166,6 +166,7 @@ async function persistProvisioned(
       provider_resource_id: resource?.id ?? null,
       provider_email_id: response.providerEmailId,
       meta: {
+        ...(response.meta ?? {}),
         ...(row.meta ?? {}),
         provider: response.providerId,
         providerLabel: response.providerLabel,

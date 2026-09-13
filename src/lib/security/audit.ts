@@ -110,4 +110,8 @@ export const AUDIT = {
   EMAIL_SERVICE_CREATED: "email.service.created",
   EMAIL_PROVISIONING_COMPLETED: "email.provisioning.completed",
   EMAIL_PROVISIONING_FAILED: "email.provisioning.failed",
+  EMAIL_MAILBOX_CREATED: "email.mailbox.created",
+  EMAIL_MAILBOX_SUSPENDED: "email.mailbox.suspended",
+  EMAIL_MAILBOX_REACTIVATED: "email.mailbox.reactivated",
+  EMAIL_MAILBOX_DELETED: "email.mailbox.deleted",
 } as const;

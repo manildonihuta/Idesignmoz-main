@@ -455,6 +455,86 @@ export async function listClientEmailServices(ctx: AuthContext): Promise<ClientE
   }));
 }
 
+export type ClientEmailMailbox = {
+  id: string;
+  emailAddress: string;
+  displayName: string | null;
+  status: string;
+  storageLimitGb: number;
+  storageUsedGb: number;
+  quotaPercent: number;
+  accessedAt: string | null;
+  createdAt: string | null;
+};
+
+export type ClientEmailServiceDetail = ClientEmailService & {
+  providerMode: string | null;
+  mailboxes: ClientEmailMailbox[];
+  usage: { storageUsedGb: number; mailboxesUsed: number };
+};
+
+export async function getClientEmailService(
+  ctx: AuthContext,
+  serviceId: string,
+): Promise<ClientEmailServiceDetail | null> {
+  if (!ctx.userId) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(serviceId)) return null;
+
+  const { data } = await supabaseAdmin
+    .from("email_services")
+    .select("id, domain, plan_name, status, dns_status, mailbox_limit, storage_limit_gb, expires_at, created_at, meta")
+    .eq("id", serviceId)
+    .eq("customer_id", ctx.userId)
+    .maybeSingle();
+  if (!data) return null;
+
+  const [mailboxesRes, usageRes] = await Promise.all([
+    supabaseAdmin
+      .from("email_mailboxes")
+      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at")
+      .eq("email_service_id", serviceId)
+      .not("status", "eq", "deleted")
+      .order("created_at", { ascending: true }),
+    supabaseAdmin
+      .from("email_usage")
+      .select("storage_used_gb, mailboxes_used")
+      .eq("email_service_id", serviceId)
+      .order("recorded_at", { ascending: false })
+      .limit(1),
+  ]);
+
+  const meta = (data.meta ?? {}) as Record<string, unknown>;
+  const usageRow = (usageRes.data?.[0] ?? {}) as Record<string, unknown>;
+  return {
+    id: data.id,
+    domain: data.domain,
+    planName: data.plan_name,
+    status: data.status,
+    dnsStatus: data.dns_status,
+    mailboxLimit: Number(data.mailbox_limit ?? 0),
+    storageLimitGb: Number(data.storage_limit_gb ?? 0),
+    expiresAt: data.expires_at ?? null,
+    createdAt: data.created_at ?? null,
+    providerLabel: typeof meta.providerLabel === "string" ? meta.providerLabel : null,
+    providerMode: typeof meta.providerMode === "string" ? meta.providerMode : null,
+    mailboxes: (mailboxesRes.data ?? []).map((m) => ({
+      id: m.id,
+      emailAddress: m.email_address,
+      displayName: m.display_name ?? null,
+      status: m.status,
+      storageLimitGb: Number(m.storage_limit_gb ?? 0),
+      storageUsedGb: Number(m.storage_used_gb ?? 0),
+      quotaPercent: Number(m.quota_percent ?? 0),
+      accessedAt: m.accessed_at ?? null,
+      createdAt: m.created_at ?? null,
+    })),
+    usage: {
+      storageUsedGb: Number(usageRow.storage_used_gb ?? 0),
+      mailboxesUsed: Number(usageRow.mailboxes_used ?? 0),
+    },
+  };
+}
+
 /**
  * Distinct product categories the customer owns, built from real commerce and
  * service tables owned by the current user. Used to drive the cross-sell

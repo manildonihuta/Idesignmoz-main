@@ -44,7 +44,11 @@ export function EmailsView({ services }: { services: ClientEmailService[] }) {
           {services.map((s) => {
             const st = STATUS[s.status] ?? { label: s.status, tone: "" };
             return (
-              <div key={s.id} className="rounded-xl border border-line bg-surface p-5">
+              <Link
+                key={s.id}
+                href={`/dashboard/email/${s.id}`}
+                className="block rounded-xl border border-line bg-surface p-5 transition hover:border-emerald-300 hover:shadow-sm"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-base font-semibold">{s.domain}</div>
@@ -58,7 +62,7 @@ export function EmailsView({ services }: { services: ClientEmailService[] }) {
                   <div><span className="text-muted">Renova:</span> {fmt(s.expiresAt)}</div>
                 </div>
                 <div className="mt-3 text-xs text-muted">Criado {fmt(s.createdAt)} · DNS: {s.dnsStatus}</div>
-              </div>
+              </Link>
             );
           })}
         </div>
