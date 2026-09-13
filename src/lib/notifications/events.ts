@@ -436,6 +436,43 @@ export const EVENTS = {
       link: ADMIN_LINK,
     }),
   },
+  "infra.provider_health": {
+    key: "infra.provider_health",
+    label: "Fornecedor com problemas de saúde",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "infra.provider_health",
+      title: `Fornecedor ${escapeHtml(p.provider)} — ${escapeHtml(p.status)}`,
+      body: `${escapeHtml(p.message ?? "")}`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "infra.sync_failed": {
+    key: "infra.sync_failed",
+    label: "Sincronização de fornecedor falhou",
+    roles: ["super_admin", "admin", "manager", "developer"],
+    render: (p) => ({
+      key: "infra.sync_failed",
+      title: `Sincronização falhou — ${escapeHtml(p.provider ?? "")}`,
+      body: `A sincronização de ${escapeHtml(p.service ?? "")} falhou.${
+        p.error ? ` Motivo: ${escapeHtml(p.error)}.` : ""
+      }`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "infra.credential_expiring": {
+    key: "infra.credential_expiring",
+    label: "Credencial de fornecedor a expirar",
+    roles: ["super_admin", "admin", "manager"],
+    render: (p) => ({
+      key: "infra.credential_expiring",
+      title: `Credencial a expirar — ${escapeHtml(p.field ?? "")}`,
+      body: `A credencial ${escapeHtml(p.field ?? "")} de ${escapeHtml(
+        p.provider ?? "",
+      )} expira em ${escapeHtml(p.daysLeft)} dias (${escapeHtml(p.expiresAt ?? "")}). Rota para evitar falhas.`,
+      link: ADMIN_LINK,
+    }),
+  },
 } as const satisfies Record<string, NotificationEventDef>;
 
 export type EventKey = keyof typeof EVENTS;

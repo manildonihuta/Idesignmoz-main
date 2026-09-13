@@ -51,6 +51,8 @@ export const PERMISSIONS = {
   "domains.register": ["super_admin", "admin", "manager", "sales", "developer"],
   "hosting.manage": ["super_admin", "admin", "manager", "developer"],
   "provisioning.manage": ["super_admin", "admin", "manager", "developer"],
+  "infra.view": ["super_admin", "admin", "manager", "developer"],
+  "infra.manage": ["super_admin", "admin", "manager", "developer"],
   "billing.manage": ["super_admin", "admin", "manager"],
   "profiles.manage": ["super_admin", "admin"],
   "settings.manage": ["super_admin", "admin"],
