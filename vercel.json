@@ -5,6 +5,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/email-expiry",
+      "schedule": "0 7 * * *"
+    },
+    {
       "path": "/api/cron/subscriptions-billing",
       "schedule": "0 5 * * *"
     },

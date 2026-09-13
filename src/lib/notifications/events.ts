@@ -279,6 +279,69 @@ export const EVENTS = {
       link: ADMIN_LINK,
     }),
   },
+  "email.expiring.30": {
+    key: "email.expiring.30",
+    label: "Email a expirar (30 dias)",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.expiring.30",
+      title: `Email a expirar — ${escapeHtml(p.domain)}`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} expira em ${escapeHtml(
+        p.daysLeft,
+      )} dias (${escapeHtml(p.expiresAt)}). Renova a tempo para evitar a suspensão do serviço.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "email.expiring.15": {
+    key: "email.expiring.15",
+    label: "Email a expirar (15 dias)",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.expiring.15",
+      title: `Lembrete — email a expirar`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} expira em ${escapeHtml(p.daysLeft)} dias (${escapeHtml(
+        p.expiresAt,
+      )}). Renova agora para não interromper o email.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "email.expiring.7": {
+    key: "email.expiring.7",
+    label: "Email a expirar (urgente)",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.expiring.7",
+      title: `⚠️ Urgente — email a expirar`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} expira em ${escapeHtml(p.daysLeft)} dias (${escapeHtml(
+        p.expiresAt,
+      )}). A renovação é urgente para evitar a suspensão.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "email.expiring.1": {
+    key: "email.expiring.1",
+    label: "Email a expirar (último dia)",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.expiring.1",
+      title: `🚨 Última chamada — email a expirar`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} expira amanhã (${escapeHtml(
+        p.expiresAt,
+      )}). Este é o último aviso antes da suspensão do serviço.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "email.expired": {
+    key: "email.expired",
+    label: "Serviço de email expirado",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.expired",
+      title: `Email suspenso por expiração — ${escapeHtml(p.domain)}`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} expirou e foi suspenso. Renova o serviço para o reativar.`,
+      link: ADMIN_LINK,
+    }),
+  },
   "subscription.created": {
     key: "subscription.created",
     label: "Subscrição criada",
