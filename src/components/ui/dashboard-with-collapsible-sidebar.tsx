@@ -28,6 +28,7 @@ import {
   ChartColumn,
   UserRound,
   Repeat,
+  Wallet,
   Server,
 } from "lucide-react";
 import type { AdminMessage, AdminOrder, AdminDomain, AdminProfile, AdminSubscription, Notice } from "./admin/types";
@@ -54,6 +55,7 @@ import { ProposalsSystemView } from "./admin/proposals-system-view";
 import { AnalyticsView } from "./admin/analytics-view";
 import { SiteSettingsView } from "./admin/settings-views";
 import { InfrastructureView } from "./admin/infra-views";
+import { CobrancasAdminView } from "./admin/billing-views";
 import { SubscriptionsAdminView } from "./admin/subscriptions-admin-view";
 import { DnsZonesView } from "./admin/dns-admin-views";
 import { AdminHostingAccountsView } from "./admin/hosting-admin-views";
@@ -80,7 +82,7 @@ type DashboardProps = {
   proposalCatalog?: ProposalServiceItem[];
 };
 
-type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "DNS" | "Domínio Admin" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Contas de alojamento" | "Subscrições" | "Provisioning" | "Infraestrutura" | "Definições" | "Ajuda";
+type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "DNS" | "Domínio Admin" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Contas de alojamento" | "Subscrições" | "Provisioning" | "Infraestrutura" | "Cobranças" | "Definições" | "Ajuda";
 
 const fmtMT = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
 
@@ -102,6 +104,7 @@ const TITLES: Record<ViewId, { title: string; sub: string }> = {
   Subscrições: { title: "Subscrições", sub: "Estado, ciclo de faturação e vida útil das subscrições." },
   Provisioning: { title: "Provisioning", sub: "Ativação de alojamento e de domínios (WHM/cPanel, Plesk, VPS, registradores)." },
   Infraestrutura: { title: "Infraestrutura", sub: "Fornecedores, credenciais, saúde, sincronização e webhooks." },
+  Cobranças: { title: "Cobranças", sub: "Pagamentos por confirmar, comprovativos, reembolsos e créditos." },
   Definições: { title: "Definições", sub: "Conta, tema e sessão." },
   Ajuda: { title: "Ajuda", sub: "Como utilizar o painel." },
 };
@@ -175,6 +178,7 @@ export default function DashboardWithCollapsibleSidebar({
     { id: "Subscrições", label: "Subscrições", Icon: Repeat, notifs: nonActiveSubs },
     { id: "Provisioning", label: "Provisioning", Icon: Rocket },
     { id: "Infraestrutura", label: "Infraestrutura", Icon: Server },
+    { id: "Cobranças", label: "Cobranças", Icon: Wallet, notifs: 0 },
     { id: "Mensagens", label: "Mensagens", Icon: MessageSquare, notifs: newMsgs },
     { id: "Pedidos", label: "Pedidos de domínio", Icon: ShoppingCart, notifs: pendingOrders },
     { id: "Utilizadores", label: "Utilizadores", Icon: Network },
@@ -257,6 +261,7 @@ export default function DashboardWithCollapsibleSidebar({
                 )}
                 {active === "Provisioning" && <ProvisioningView notify={notify} />}
                 {active === "Infraestrutura" && <InfrastructureView notify={notify} />}
+                {active === "Cobranças" && <CobrancasAdminView notify={notify} />}
                 {active === "Definições" && (
                   <div className="flex flex-col gap-8">
                     <SettingsView adminEmail={adminEmail} isDark={isDark} setIsDark={setIsDark} notify={notify} />

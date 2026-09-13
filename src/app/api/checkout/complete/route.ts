@@ -11,6 +11,10 @@ import { notifyEvent } from "@/lib/notifications";
 import { CYCLE_LABELS, CYCLE_MONTHS, sellPeriodToCycle, type BillingCycle } from "@/lib/billing";
 import { getCatalogProductRows } from "@/lib/content";
 import { catalogPrice } from "@/lib/cart";
+import { getSiteSettings } from "@/lib/site-settings";
+import { computeTotals } from "@/lib/pricing";
+import { resolveCoupon } from "@/lib/coupons";
+import { createInvoiceFromOrder } from "@/services/invoice.service";
 import type { SellPeriod } from "@/lib/catalog-types";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +34,7 @@ const ITEM_KINDS = new Set([
 ]);
 
 const PERIODS = new Set(["one_time", "monthly", "quarterly", "semiannual", "annual"]);
+const AUTO_METHODS = new Set(["visa", "mastercard", "card"]);
 
 function orderItemKind(itemKind: string): string {
   if (itemKind === "registration" || itemKind === "renewal") return "domain";
@@ -73,14 +78,16 @@ function nextRenewalDay(from: Date, cycle: BillingCycle): string {
   return d.toISOString();
 }
 
-/** Public checkout completion. Writes real commerce rows (orders, order_items,
+/**
+ * Public checkout completion. Writes real commerce rows (orders, order_items,
  * payments, subscriptions) using the service role. Anonymous is allowed.
  *
  * Prices are NEVER trusted from the client — each item's price is re-derived
  * server-side from the DB catalog (catalog_products / domain_extensions) and
- * mismatching requests are rejected. The actual write is a single atomic
- * transaction (complete_checkout RPC); post-commit audit/notifications for the
- * created subscriptions run here after success. */
+ * mismatching requests are rejected. The actual write is an atomic transaction
+ * (complete_checkout or create_pending_checkout RPC depending on the payment
+ * method); post-commit audit/notifications + invoice creation.
+ */
 export async function POST(request: NextRequest) {
   const ip = clientIp(request);
 
@@ -95,7 +102,7 @@ export async function POST(request: NextRequest) {
   });
   if (!limited.ok) return rateLimitResponse(limited.retryAfterSec);
 
-  let body: { customer?: CustomerInput; method?: unknown; reference?: unknown; items?: unknown };
+  let body: { customer?: CustomerInput; method?: unknown; reference?: unknown; items?: unknown; couponCode?: unknown };
   try {
     body = await request.json();
   } catch (e) {
@@ -126,6 +133,9 @@ export async function POST(request: NextRequest) {
   });
 
   const customer: CustomerInput = body.customer ?? {};
+  const settings = await getSiteSettings();
+  const taxRate = Number(settings.tax?.rate ?? 15);
+  const taxIncluded = settings.tax?.includedInPrices !== false;
 
   // Authoritative price sources (server-side, never client-provided).
   const catalogProducts = await getCatalogProductRows();
@@ -307,6 +317,111 @@ export async function POST(request: NextRequest) {
   const currency = orderCurrency;
   let orderNumber = generateOrderNumber();
 
+  // Coupon
+  let resolvedCoupon: { id: string; kind: "percent" | "fixed"; value: number; maxDiscount: number | null } | null = null;
+  if (typeof body.couponCode === "string" && body.couponCode.trim()) {
+    const couponRes = await resolveCoupon(body.couponCode.trim(), subtotal);
+    if (!couponRes.ok) {
+      return Response.json({ ok: false, error: couponRes.error }, { status: couponRes.status });
+    }
+    resolvedCoupon = {
+      id: couponRes.coupon.id,
+      kind: couponRes.coupon.kind,
+      value: Number(couponRes.coupon.value),
+      maxDiscount: couponRes.coupon.max_discount,
+    };
+  }
+
+  // Compute totals (discount, tax, total) — single source of truth.
+  const totals = computeTotals({
+    subtotal,
+    coupon: resolvedCoupon
+      ? { kind: resolvedCoupon.kind, value: resolvedCoupon.value, maxDiscount: resolvedCoupon.maxDiscount }
+      : null,
+    taxRate,
+    taxIncludedInPrices: taxIncluded,
+  });
+
+  const isManualMethod = !AUTO_METHODS.has(String(body.method));
+
+  /* ------------------------------------------------------------------ *
+   * Manual / proof-first methods → create_pending_checkout (deferred)
+   * ------------------------------------------------------------------ */
+  if (isManualMethod) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (attempt > 0) orderNumber = generateOrderNumber();
+      const { data, error } = await supabaseAdmin.rpc("create_pending_checkout", {
+        p_order: {
+          number: orderNumber,
+          customer_id: customerId,
+          subtotal,
+          discount_amount: totals.discount,
+          tax_rate: taxRate,
+          tax_amount: totals.taxAmount,
+          total: totals.total,
+          currency,
+          coupon_id: resolvedCoupon?.id ?? null,
+          notes: `Pagamento por ${body.method} · ref. ${body.reference}`,
+        },
+        p_items: pItems,
+        p_payment: {
+          customer_id: customerId,
+          method: String(body.method),
+          reference: String(body.reference),
+          amount: totals.total,
+          currency,
+          meta: {
+            source: "checkout",
+            customer: {
+              full_name: typeof customer.fullName === "string" ? customer.fullName : undefined,
+              email: typeof customer.email === "string" ? customer.email : undefined,
+              phone: typeof customer.phone === "string" ? customer.phone : undefined,
+            },
+          },
+        },
+      });
+
+      if (error) {
+        if (attempt < 2 && String(error.code ?? error.message).includes("23505")) {
+          continue;
+        }
+        serverLogError("api:checkout/complete.create_pending", error);
+        return Response.json({ ok: false, error: "Não foi possível registar a encomenda." }, { status: 500 });
+      }
+
+      const pending = data as {
+        order_id: string;
+        payment_id: string;
+        number: string;
+        status: string;
+      };
+
+      await logAudit({
+        action: AUDIT.ORDER_STATUS,
+        entity: "order",
+        entityId: pending.order_id,
+        actorId: customerId ?? undefined,
+        meta: { number: pending.number, method: body.method, reference: body.reference, pending: true },
+      });
+
+      return Response.json(
+        {
+          ok: true,
+          orderId: pending.order_id,
+          number: pending.number,
+          total: totals.total,
+          pending: true,
+          paymentId: pending.payment_id,
+        },
+        { status: 200 },
+      );
+    }
+    return Response.json({ ok: false, error: "Não foi possível registar a encomenda." }, { status: 500 });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Auto-settle methods → complete_checkout (instant)
+   * ------------------------------------------------------------------ */
   for (let attempt = 0; attempt < 3; attempt += 1) {
     if (attempt > 0) orderNumber = generateOrderNumber();
     const { data, error } = await supabaseAdmin.rpc("complete_checkout", {
@@ -315,10 +430,12 @@ export async function POST(request: NextRequest) {
         customer_id: customerId,
         status: "paid",
         subtotal,
-        tax_rate: 0,
-        tax_amount: 0,
-        total: subtotal,
+        discount_amount: totals.discount,
+        tax_rate: taxRate,
+        tax_amount: totals.taxAmount,
+        total: totals.total,
         currency,
+        coupon_id: resolvedCoupon?.id ?? null,
         notes: `Pagamento por ${body.method} · ref. ${body.reference}`,
       },
       p_items: pItems,
@@ -326,7 +443,7 @@ export async function POST(request: NextRequest) {
         customer_id: customerId,
         method: String(body.method),
         reference: String(body.reference),
-        amount: subtotal,
+        amount: totals.total,
         currency,
         meta: {
           source: "checkout",
@@ -366,8 +483,34 @@ export async function POST(request: NextRequest) {
       }>;
     };
 
-    // Post-commit side effects: audit + notify the subscriptions created
-    // inside the RPC transaction (mirrors the old createSubscription path).
+    // Post-commit: invoice + side effects.
+    try {
+      const paidOrder = {
+        id: result.order_id,
+        number: result.number,
+        customer_id: customerId,
+        status: "paid" as const,
+        subtotal,
+        discount_amount: totals.discount,
+        tax_rate: taxRate,
+        tax_amount: totals.taxAmount,
+        total: totals.total,
+        currency,
+        notes: `Pagamento por ${body.method} · ref. ${body.reference}`,
+      };
+      const invoice = await createInvoiceFromOrder(paidOrder, {
+        id: result.order_id,
+        paid_at: new Date().toISOString(),
+      });
+      // Link invoice to the payment row.
+      await supabaseAdmin
+        .from("payments")
+        .update({ invoice_id: invoice.id })
+        .eq("order_id", result.order_id);
+    } catch (e) {
+      serverLogError("api:checkout/complete.invoice", e);
+    }
+
     for (const sub of result.subscriptions ?? []) {
       await logAudit({
         action: AUDIT.SUBSCRIPTION_CREATED,
@@ -394,7 +537,7 @@ export async function POST(request: NextRequest) {
         ok: true,
         orderId: result.order_id,
         number: result.number,
-        total: subtotal,
+        total: totals.total,
         pending: result.pending,
       },
       { status: 200 },

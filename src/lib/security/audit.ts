@@ -100,4 +100,11 @@ export const AUDIT = {
   INFRA_WEBHOOK_SAVED: "infra.webhook.saved",
   INFRA_WEBHOOK_DELETED: "infra.webhook.deleted",
   INFRA_WEBHOOK_TESTED: "infra.webhook.tested",
+  PAYMENT_VERIFIED: "payment.verified",
+  PAYMENT_REJECTED: "payment.rejected",
+  PAYMENT_PROOF_UPLOADED: "payment.proof_uploaded",
+  REFUND_REQUESTED: "refund.requested",
+  REFUND_APPROVED: "refund.approved",
+  REFUND_REJECTED: "refund.rejected",
+  CREDIT_ISSUED: "credit.issued",
 } as const;

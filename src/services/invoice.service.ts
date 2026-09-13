@@ -33,7 +33,7 @@ export async function createInvoiceFromOrder(
 ): Promise<Record<string, unknown> & { id: string }> {
   const settings = await getSiteSettings();
   const prefix = settings.payments?.invoiceNumberPrefix || "INV-";
-  const taxRate = Number(settings.tax?.rate ?? 15);
+  const settingsTaxRate = Number(settings.tax?.rate ?? 15);
 
   const { data: items } = await supabaseAdmin
     .from("order_items")
@@ -49,8 +49,14 @@ export async function createInvoiceFromOrder(
 
   const subtotal = Number(order.subtotal ?? 0);
   const discount = Number(order.discount_amount ?? 0);
-  const taxAmount = Math.round(subtotal * taxRate) / 100;
-  const total = subtotal - discount + taxAmount;
+  const taxRate = Number(order.tax_rate ?? 0) || settingsTaxRate;
+  let taxAmount = Number(order.tax_amount ?? 0);
+  // Legacy orders stored the tax rate but no tax amount — derive it the same
+  // way the checkout prices now: IVA included in prices by default.
+  if (taxAmount === 0 && taxRate > 0) {
+    taxAmount = Math.round((subtotal * taxRate) / 100);
+  }
+  const total = Math.max(0, subtotal - discount + taxAmount);
 
   const paid = order.status === "paid";
   const now = new Date();

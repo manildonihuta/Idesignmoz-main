@@ -38,6 +38,74 @@ export const EVENTS = {
       link: ADMIN_LINK,
     }),
   },
+  "payment.pending": {
+    key: "payment.pending",
+    label: "Pagamento a aguardar verificação",
+    roles: ["super_admin", "admin", "manager", "sales"],
+    render: (p) => ({
+      key: "payment.pending",
+      title: "Pagamento a aguardar confirmação",
+      body: `Um pagamento manual (${escapeHtml(p.method)}) aguarda comprovativo e verificação.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "payment.verified": {
+    key: "payment.verified",
+    label: "Pagamento verificado",
+    roles: ["super_admin", "admin", "manager", "sales"],
+    render: (p) => ({
+      key: "payment.verified",
+      title: `Pagamento verificado — ${escapeHtml(p.orderNumber)}`,
+      body: `O pagamento da encomenda ${escapeHtml(p.orderNumber)} foi confirmado.${
+        p.amount != null ? ` Valor: ${fmtMT(p.amount)}.` : ""
+      }`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "payment.rejected": {
+    key: "payment.rejected",
+    label: "Pagamento rejeitado",
+    roles: ["super_admin", "admin", "manager", "sales"],
+    render: (p) => ({
+      key: "payment.rejected",
+      title: "Pagamento rejeitado",
+      body: `Um pagamento foi rejeitado.${p.reason ? ` Motivo: ${escapeHtml(p.reason)}` : ""}`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "refund.requested": {
+    key: "refund.requested",
+    label: "Reembolso pedido",
+    roles: ["super_admin", "admin", "manager", "sales"],
+    render: (p) => ({
+      key: "refund.requested",
+      title: "Reembolso pedido",
+      body: `Foi pedido um reembolso de ${fmtMT(p.amount)}.${p.reason ? ` Motivo: ${escapeHtml(p.reason)}` : ""}`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "refund.approved": {
+    key: "refund.approved",
+    label: "Reembolso processado",
+    roles: ["super_admin", "admin", "manager"],
+    render: (p) => ({
+      key: "refund.approved",
+      title: "Reembolso processado",
+      body: `Foi creditado um reembolso de ${fmtMT(p.amount)} ao cliente.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "credit.issued": {
+    key: "credit.issued",
+    label: "Crédito emitido",
+    roles: ["super_admin", "admin", "manager"],
+    render: (p) => ({
+      key: "credit.issued",
+      title: `Crédito emitido — ${fmtMT(p.amount)}`,
+      body: p.reason ? escapeHtml(p.reason) : "Crédito adicionado ao cliente.",
+      link: ADMIN_LINK,
+    }),
+  },
   "domain.registered": {
     key: "domain.registered",
     label: "Domínio registado",

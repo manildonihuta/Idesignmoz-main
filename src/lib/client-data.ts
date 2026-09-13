@@ -90,9 +90,12 @@ export type ClientPayment = {
   amount: number;
   currency: string;
   method: string | null;
+  methodId: string | null;
   reference: string | null;
   status: string;
   description: string | null;
+  orderId: string | null;
+  canUploadProof: boolean;
   createdAt: string;
 };
 
@@ -301,23 +304,35 @@ export async function listClientPayments(ctx: AuthContext): Promise<ClientPaymen
 
   const METHOD_LABEL: Record<string, string> = {
     mpesa: "M-Pesa",
+    emola: "e-Mola",
+    mkesh: "mKesh",
     card: "Cartão",
+    visa: "Visa",
+    mastercard: "Mastercard",
     bank_transfer: "Transferência bancária",
+    "bank-transfer": "Transferência bancária",
     cash: "Numerário",
   };
+  const PROOF_METHODS = new Set(["mpesa", "emola", "mkesh", "bank-transfer", "bank_transfer", "cash"]);
 
-  return (payments ?? []).map((p) => ({
-    id: p.id,
-    amount: Number(p.amount ?? 0),
-    currency: p.currency ?? "MZN",
-    method: METHOD_LABEL[p.method as string] ?? p.method,
-    reference: p.reference,
-    status: p.status,
-    description: p.meta && typeof p.meta === "object" && "description" in p.meta
-      ? String((p.meta as Record<string, unknown>).description)
-      : "Pagamento",
-    createdAt: p.created_at,
-  }));
+  return (payments ?? []).map((p) => {
+    const methodId = p.method ? String(p.method) : null;
+    return {
+      id: p.id,
+      amount: Number(p.amount ?? 0),
+      currency: p.currency ?? "MZN",
+      method: methodId ? (METHOD_LABEL[methodId] ?? methodId) : null,
+      methodId,
+      reference: p.reference,
+      status: p.status,
+      description: p.meta && typeof p.meta === "object" && "description" in p.meta
+        ? String((p.meta as Record<string, unknown>).description)
+        : "Pagamento",
+      orderId: p.order_id ?? null,
+      canUploadProof: p.status === "pending" && !!methodId && PROOF_METHODS.has(methodId),
+      createdAt: p.created_at,
+    };
+  });
 }
 
 export async function countClientItems(ctx: AuthContext): Promise<{

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ClientPayment } from "@/lib/client-data";
 
@@ -12,6 +12,8 @@ type PaymentMethod = {
   kind: string;
   enabled: boolean;
 };
+
+const PROOF_ACCEPT = "image/png,image/jpeg,image/gif,image/webp,application/pdf";
 
 function fmtMT(value: number): string {
   return new Intl.NumberFormat("pt-MZ", { maximumFractionDigits: 0 }).format(value);
@@ -29,26 +31,83 @@ function fmtDate(iso: string): string {
   }
 }
 
-function TransactionRow({ tx }: { tx: ClientPayment }) {
+function ProofUpload({ tx, onDone }: { tx: ClientPayment; onDone: (message: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function upload(file: File) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch(`/api/payments/${tx.id}/proof`, { method: "POST", body });
+      const json = (await res.json()) as { ok?: boolean; error?: string; status?: number };
+      if (!json.ok) {
+        onDone(json.error ?? "Não foi possível enviar o comprovativo.");
+        return;
+      }
+      onDone("Comprovativo enviado. A nossa equipa vai confirmar o pagamento em breve.");
+    } catch {
+      onDone("Erro de rede ao enviar o comprovativo.");
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
   return (
-    <div className="payment-tx">
-      <div className="payment-tx-icon">{(tx.method ?? "?").charAt(0)}</div>
+    <div className="payment-tx" style={{ marginTop: 10 }}>
       <div className="payment-tx-main">
-        <strong>{tx.description ?? "Pagamento"}</strong>
+        <strong>Confirmar o pagamento</strong>
         <p className="payment-tx-meta">
-          {fmtDate(tx.createdAt)} · {tx.reference ? `Ref. ${tx.reference} · ` : ""}{tx.method ?? "—"}
+          Envia o comprovativo (captura de ecrã ou PDF) para confirmarmos o pagamento de {fmtMT(tx.amount)} MT.
         </p>
-      </div>
-      <div className="payment-tx-right">
-        <span className={`tx-status ${tx.status.toLowerCase()}`}>{tx.status}</span>
-        <b>{fmtMT(tx.amount)} MT</b>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={PROOF_ACCEPT}
+          disabled={busy}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void upload(file);
+          }}
+          className="mt-2 block text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-paper"
+        />
       </div>
     </div>
   );
 }
 
+function TransactionRow({ tx, onProofDone }: { tx: ClientPayment; onProofDone: (message: string) => void }) {
+  return (
+    <>
+      <div className="payment-tx">
+        <div className="payment-tx-icon">{(tx.method ?? "?").charAt(0)}</div>
+        <div className="payment-tx-main">
+          <strong>{tx.description ?? "Pagamento"}</strong>
+          <p className="payment-tx-meta">
+            {fmtDate(tx.createdAt)} · {tx.reference ? `Ref. ${tx.reference} · ` : ""}{tx.method ?? "—"}
+          </p>
+        </div>
+        <div className="payment-tx-right">
+          <span className={`tx-status ${tx.status.toLowerCase()}`}>{tx.status}</span>
+          <b>{fmtMT(tx.amount)} MT</b>
+        </div>
+      </div>
+      {tx.canUploadProof ? <ProofUpload tx={tx} onDone={onProofDone} /> : null}
+    </>
+  );
+}
+
 export function PaymentsView({ payments }: { payments: ClientPayment[] }) {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function showNotice(message: string) {
+    setNotice(message);
+    window.setTimeout(() => setNotice(null), 7000);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +134,12 @@ export function PaymentsView({ payments }: { payments: ClientPayment[] }) {
         </h1>
         <p className="text-muted">Histórico de transacções e métodos de pagamento.</p>
       </div>
+
+      {notice ? (
+        <div className="rounded-xl border border-line bg-surface p-4 text-sm text-paper" role="status">
+          {notice}
+        </div>
+      ) : null}
 
       {methods.length > 0 ? (
         <div className="payment-block">
@@ -120,7 +185,7 @@ export function PaymentsView({ payments }: { payments: ClientPayment[] }) {
             </div>
           )}
           {payments.map((tx) => (
-            <TransactionRow key={tx.id} tx={tx} />
+            <TransactionRow key={tx.id} tx={tx} onProofDone={showNotice} />
           ))}
         </div>
       </div>
