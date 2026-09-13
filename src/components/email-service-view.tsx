@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { generateReference, PAYMENT_METHODS } from "@/lib/payment-providers";
 import type { ClientEmailMailbox, ClientEmailServiceDetail } from "@/lib/client-data";
 
 function quotaPercent(usedGb: number, limitGb: number): number {
@@ -396,6 +397,171 @@ function UsagePanel({
   );
 }
 
+function RenewPanel({
+  serviceId,
+  planName,
+  domain,
+  onNotice,
+}: {
+  serviceId: string;
+  planName: string;
+  domain: string;
+  onNotice: (msg: string) => void;
+}) {
+  const [months, setMonths] = useState(12);
+  const [method, setMethod] = useState(PAYMENT_METHODS[0]?.id ?? "mpesa");
+  const [reference, setReference] = useState(generateReference);
+  const [quote, setQuote] = useState<{ planName?: string; months?: number; pricePerMonth?: number; subtotal?: number; total?: number } | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [settling, setSettling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadQuote = useCallback(
+    async (m: number) => {
+      setSettling(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/email/services/${serviceId}/renew?months=${m}`, { cache: "no-store" });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          planName?: string;
+          months?: number;
+          pricePerMonth?: number;
+          subtotal?: number;
+          total?: number;
+        };
+        if (!res.ok || !data.ok) {
+          setError(data.error ?? "Não foi possível calcular o valor da renovação.");
+          setQuote(null);
+          return;
+        }
+        setQuote(data);
+      } catch {
+        setQuote(null);
+      } finally {
+        setSettling(false);
+      }
+    },
+    [serviceId],
+  );
+
+  useEffect(() => {
+    const token = window.setTimeout(() => {
+      void loadQuote(months);
+    }, 0);
+    return () => window.clearTimeout(token);
+  }, [months, loadQuote]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/email/services/${serviceId}/renew`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months, method, reference }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; number?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Não foi possível pedir a renovação.");
+        return;
+      }
+      setReference(generateReference());
+      onNotice(
+        `Renovação pedida (ordem ${data.number ?? ""}). Complete o pagamento a partir do painel de pagamentos.`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-5">
+      <h2 className="font-display-2 text-lg font-semibold">Renovar serviço</h2>
+      <p className="text-sm text-muted">
+        Estenda o prazo de <strong>{domain}</strong> ({planName}) por vários meses sem criar um novo serviço.
+      </p>
+
+      <form onSubmit={submit} className="mt-4 space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="text-xs text-muted">Duração (meses)</span>
+            <select
+              value={months}
+              onChange={(e) => setMonths(Number(e.target.value))}
+              className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm"
+            >
+              {[1, 3, 6, 12].map((m) => (
+                <option key={m} value={m}>
+                  {m} {m === 1 ? "mês" : "meses"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs text-muted">Método de pagamento</span>
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value as typeof method)}
+              className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm"
+            >
+              {PAYMENT_METHODS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs text-muted">Referência</span>
+            <input
+              type="text"
+              required
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm">
+            {settling ? (
+              <span className="inline-flex items-center gap-1 text-muted">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> A calcular…
+              </span>
+            ) : quote && quote.total ? (
+              <span>
+                Total a pagar: <strong className="text-emerald-600">{quote.total} MT</strong>
+                {quote.pricePerMonth ? <span className="text-muted"> · {quote.pricePerMonth} MT/mês</span> : null}
+              </span>
+            ) : (
+              <span className="text-muted">Selecione a duração para ver o valor.</span>
+            )}
+          </div>
+          <Link href="/dashboard/payments" className="text-sm text-muted hover:underline">
+            Ver pagamentos pendentes →
+          </Link>
+        </div>
+
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</div>}
+
+        <button type="submit" disabled={busy || settling || !quote?.total} className="button">
+          {busy ? "A pedir…" : "Pedir renovação"}
+        </button>
+        <p className="text-xs text-muted">
+          Após o pedido, será criada uma ordem pendente. Envie o comprovativo no painel de pagamentos; a renovação
+          é ativada quando um administrador confirma.
+        </p>
+      </form>
+    </div>
+  );
+}
+
 export function EmailServiceView({ service: initial }: { service: ClientEmailServiceDetail }) {
   const [service, setService] = useState(initial);
   const [localPart, setLocalPart] = useState("");
@@ -562,6 +728,13 @@ export function EmailServiceView({ service: initial }: { service: ClientEmailSer
       {notice && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
 
       <QuotaBanner usage={service.usage} domain={service.domain} />
+
+      <RenewPanel
+        serviceId={service.id}
+        planName={service.planName}
+        domain={service.domain}
+        onNotice={setNotice}
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-line bg-surface p-5">

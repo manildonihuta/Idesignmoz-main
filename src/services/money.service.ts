@@ -7,6 +7,7 @@ import { notifyEvent } from "@/lib/notifications";
 import { putObject } from "@/lib/storage";
 import { buildSettlementPayloads } from "@/lib/checkout-payloads";
 import { createInvoiceFromOrder } from "./invoice.service";
+import { applyEmailRenewalFromOrderItem } from "./email-renewal.service";
 import { fail, type ServiceResult } from "./result";
 
 export type BillingActor = {
@@ -315,6 +316,20 @@ export async function settlePendingPayment(
     await notifyEvent("email.service_created", {
       domain: String(email.domain ?? ""),
     });
+  }
+
+  // Email renewals: extend the existing service (never creates a new one).
+  for (const item of (items ?? []) as Array<{ meta?: Record<string, unknown> | null }>) {
+    if (item.meta?.catalog_kind !== "email_renewal") continue;
+    const renewal = await applyEmailRenewalFromOrderItem({
+      meta: item.meta,
+      customerId: payment.customer_id,
+      orderId: order.id,
+      actor,
+    });
+    if (!renewal.ok) {
+      serverLogError("service:money.settle.renewal", new Error(renewal.error));
+    }
   }
 
   await logAudit({

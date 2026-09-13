@@ -342,6 +342,17 @@ export const EVENTS = {
       link: ADMIN_LINK,
     }),
   },
+  "email.renewed": {
+    key: "email.renewed",
+    label: "Serviço de email renovado",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.renewed",
+      title: `Serviço de email renovado — ${escapeHtml(p.domain)}`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} foi renovado.${p.expiresAt ? ` Novo prazo: ${escapeHtml(p.expiresAt)}.` : ""}`,
+      link: ADMIN_LINK,
+    }),
+  },
   "subscription.created": {
     key: "subscription.created",
     label: "Subscrição criada",

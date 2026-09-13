@@ -123,4 +123,5 @@ export const AUDIT = {
   EMAIL_USAGE_SYNCED: "email.usage.synced",
   EMAIL_SERVICE_SUSPENDED: "email.service.suspended",
   EMAIL_SERVICE_REACTIVATED: "email.service.reactivated",
+  EMAIL_SERVICE_RENEWED: "email.service.renewed",
 } as const;
