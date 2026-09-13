@@ -49,6 +49,7 @@ export const PERMISSIONS = {
   "messages.manage": ["super_admin", "admin", "manager", "support"],
   "domains.admin": ["super_admin", "admin", "manager", "developer", "support"],
   "domains.register": ["super_admin", "admin", "manager", "sales", "developer"],
+  "hosting.manage": ["super_admin", "admin", "manager", "developer"],
   "provisioning.manage": ["super_admin", "admin", "manager", "developer"],
   "billing.manage": ["super_admin", "admin", "manager"],
   "profiles.manage": ["super_admin", "admin"],

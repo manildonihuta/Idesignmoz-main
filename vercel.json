@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/subscriptions-billing",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/hosting-monitor",
+      "schedule": "0 4 * * *"
     }
   ]
 }

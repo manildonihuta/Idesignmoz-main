@@ -73,14 +73,16 @@ function hostingPlanLimits(plan: Record<string, unknown> | undefined | null): Ho
     ramMb: 2048,
   };
   if (!plan) return fallback;
+  const cpuCores = Number(plan.cpu_cores ?? 1) || 1;
+  const ramMb = Number(plan.memory_mb ?? fallback.ramMb) || fallback.ramMb;
   return {
     diskGb: Number(plan.storage_gb ?? fallback.diskGb) || fallback.diskGb,
     bandwidthGb: Number(plan.bandwidth_gb ?? fallback.bandwidthGb) || fallback.bandwidthGb,
     websites: Number(plan.sites ?? fallback.websites) || fallback.websites,
     emailAccounts: Number(plan.email_accounts ?? fallback.emailAccounts) || fallback.emailAccounts,
     databases: Number(plan.databases ?? fallback.databases) || fallback.databases,
-    cpu: fallback.cpu,
-    ramMb: fallback.ramMb,
+    cpu: `${cpuCores} vCPU${cpuCores > 1 ? "s" : ""}`,
+    ramMb,
   };
 }
 

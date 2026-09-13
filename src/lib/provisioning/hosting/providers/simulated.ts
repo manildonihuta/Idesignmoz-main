@@ -14,6 +14,22 @@ export const simulatedHostingProvider: HostingProvider = {
   label: "Simulado",
   configured: true,
 
+  // DB-backed control-panel features the platform genuinely manages for this
+  // provider. Files/SSH/email/staging/cron are intentionally absent — no real
+  // filesystem/mail infra exists behind the simulated provider.
+  capabilities: [
+    "accounts",
+    "usage",
+    "websites",
+    "databases",
+    "backups",
+    "ssl",
+    "php",
+    "performance",
+    "security",
+    "alerts",
+  ] as const,
+
   async provision(req: HostingProvisionRequest): Promise<HostingProvisionResponse> {
     const username = deriveUsername(req.domain, req.username);
     const password = randomStrongPassword();

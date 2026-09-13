@@ -15,6 +15,11 @@ export const whmProvider: HostingProvider = {
     return Boolean(process.env.WHM_HOST && process.env.WHM_API_TOKEN);
   },
 
+  // Only the account lifecycle is wired today. Panel features (websites,
+  // databases, backups, SSL, files, ...) stay gated until management-call
+  // implementations exist — never advertised as supported.
+  capabilities: ["accounts"] as const,
+
   async provision(req: HostingProvisionRequest): Promise<HostingProvisionResponse> {
     const host = process.env.WHM_HOST!;
     const token = process.env.WHM_API_TOKEN!;

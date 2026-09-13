@@ -288,6 +288,154 @@ export const EVENTS = {
       link: ADMIN_LINK,
     }),
   },
+  "hosting.website.created": {
+    key: "hosting.website.created",
+    label: "Website alojado criado",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.website.created",
+      title: `Website adicionado — ${escapeHtml(p.domain)}`,
+      body: `O website ${escapeHtml(p.domain)} foi adicionado à conta de alojamento de ${escapeHtml(
+        p.accountDomain,
+      )}.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.website.offline": {
+    key: "hosting.website.offline",
+    label: "Website offline",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.website.offline",
+      title: `Website offline — ${escapeHtml(p.domain)}`,
+      body: `O website ${escapeHtml(p.domain)} entrou em estado offline.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.backup.failed": {
+    key: "hosting.backup.failed",
+    label: "Backup falhou",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.backup.failed",
+      title: `Backup falhou — ${escapeHtml(p.domain)}`,
+      body: `A criação do backup de ${escapeHtml(p.domain)} falhou.${
+        p.reason ? ` Motivo: ${escapeHtml(p.reason)}.` : ""
+      }`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.backup.completed": {
+    key: "hosting.backup.completed",
+    label: "Backup concluído",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.backup.completed",
+      title: `Backup concluído — ${escapeHtml(p.domain)}`,
+      body: `Backup ${escapeHtml(p.label)} de ${escapeHtml(p.domain)} concluído${
+        p.sizeMb != null ? ` (${escapeHtml(p.sizeMb)} MB)` : ""
+      }.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.ssl.installed": {
+    key: "hosting.ssl.installed",
+    label: "SSL instalado",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.ssl.installed",
+      title: `SSL instalado — ${escapeHtml(p.domain)}`,
+      body: `Certificado SSL ativo para ${escapeHtml(p.domain)}${
+        p.expiresAt ? ` até ${escapeHtml(p.expiresAt)}` : ""
+      }.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.ssl.expiring": {
+    key: "hosting.ssl.expiring",
+    label: "SSL a expirar",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.ssl.expiring",
+      title: `SSL a expirar — ${escapeHtml(p.domain)}`,
+      body: `O certificado SSL de ${escapeHtml(p.domain)} expira em ${escapeHtml(p.daysLeft)} dias (${
+        escapeHtml(p.expiresAt)
+      }).`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.quota.80": {
+    key: "hosting.quota.80",
+    label: "Armazenamento 80%",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.quota.80",
+      title: `Armazenamento 80% — ${escapeHtml(p.domain)}`,
+      body: `A conta de alojamento de ${escapeHtml(p.domain)} atingiu 80% do armazenamento.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.quota.90": {
+    key: "hosting.quota.90",
+    label: "Armazenamento 90%",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.quota.90",
+      title: `Armazenamento 90% — ${escapeHtml(p.domain)}`,
+      body: `A conta de alojamento de ${escapeHtml(p.domain)} atingiu 90% do armazenamento.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.cpu.high": {
+    key: "hosting.cpu.high",
+    label: "CPU elevado",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.cpu.high",
+      title: `CPU elevado — ${escapeHtml(p.domain)}`,
+      body: `A conta de alojamento de ${escapeHtml(p.domain)} registou utilização de CPU elevada (${
+        escapeHtml(p.value)
+      }).`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.memory.high": {
+    key: "hosting.memory.high",
+    label: "Memória elevada",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.memory.high",
+      title: `Memória elevada — ${escapeHtml(p.domain)}`,
+      body: `A conta de alojamento de ${escapeHtml(p.domain)} registou utilização de memória elevada (${
+        escapeHtml(p.value)
+      }).`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.bandwidth.limit": {
+    key: "hosting.bandwidth.limit",
+    label: "Tráfego no limite",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.bandwidth.limit",
+      title: `Tráfego no limite — ${escapeHtml(p.domain)}`,
+      body: `A conta de alojamento de ${escapeHtml(p.domain)} atingiu o limite de tráfego do plano.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "hosting.status.changed": {
+    key: "hosting.status.changed",
+    label: "Estado da conta alterado",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "hosting.status.changed",
+      title: `Conta ${escapeHtml(p.status ?? "")} — ${escapeHtml(p.domain)}`,
+      body: `A conta de alojamento de ${escapeHtml(p.domain)} mudou para ${escapeHtml(p.status ?? "")}${escapeHtml(
+        p.reason ? ` · ${p.reason}` : "",
+      )}.`,
+      link: ADMIN_LINK,
+    }),
+  },
 } as const satisfies Record<string, NotificationEventDef>;
 
 export type EventKey = keyof typeof EVENTS;

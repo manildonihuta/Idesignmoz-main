@@ -16,6 +16,8 @@ export const pleskProvider: HostingProvider = {
     return Boolean(process.env.PLESK_HOST && process.env.PLESK_LOGIN && process.env.PLESK_PASSWORD);
   },
 
+  capabilities: ["accounts"] as const,
+
   async provision(req: HostingProvisionRequest): Promise<HostingProvisionResponse> {
     const host = process.env.PLESK_HOST!;
     const login = process.env.PLESK_LOGIN!;

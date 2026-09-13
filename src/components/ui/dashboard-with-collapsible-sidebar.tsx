@@ -54,6 +54,7 @@ import { AnalyticsView } from "./admin/analytics-view";
 import { SiteSettingsView } from "./admin/settings-views";
 import { SubscriptionsAdminView } from "./admin/subscriptions-admin-view";
 import { DnsZonesView } from "./admin/dns-admin-views";
+import { AdminHostingAccountsView } from "./admin/hosting-admin-views";
 import type { CompanyInfo } from "@/lib/site-settings";
 import type { ProposalServiceItem } from "@/lib/proposals";
 
@@ -77,7 +78,7 @@ type DashboardProps = {
   proposalCatalog?: ProposalServiceItem[];
 };
 
-type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "DNS" | "Domínio Admin" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Subscrições" | "Provisioning" | "Definições" | "Ajuda";
+type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "DNS" | "Domínio Admin" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Contas de alojamento" | "Subscrições" | "Provisioning" | "Definições" | "Ajuda";
 
 const fmtMT = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
 
@@ -95,6 +96,7 @@ const TITLES: Record<ViewId, { title: string; sub: string }> = {
   Clientes: { title: "Gestão de clientes", sub: "Cria, edita, suspende e consulta clientes." },
   Produtos: { title: "Produtos e preços", sub: "Catálogo, planos, categorias e cupões." },
   Alojamento: { title: "Planos de alojamento", sub: "Recursos, preços, ciclo, servidor e estado." },
+  "Contas de alojamento": { title: "Contas de alojamento", sub: "Contas ativas, uso real, planos, estado e aprovisionamento." },
   Subscrições: { title: "Subscrições", sub: "Estado, ciclo de faturação e vida útil das subscrições." },
   Provisioning: { title: "Provisioning", sub: "Ativação de alojamento e de domínios (WHM/cPanel, Plesk, VPS, registradores)." },
   Definições: { title: "Definições", sub: "Conta, tema e sessão." },
@@ -166,6 +168,7 @@ export default function DashboardWithCollapsibleSidebar({
     { id: "Domínios", label: "Domínios", Icon: Globe, notifs: availableDomains },
     { id: "DNS", label: "DNS", Icon: ListTree, notifs: 0 },
     { id: "Alojamento", label: "Alojamento", Icon: ServerCog },
+    { id: "Contas de alojamento", label: "Contas de alojamento", Icon: UserRound },
     { id: "Subscrições", label: "Subscrições", Icon: Repeat, notifs: nonActiveSubs },
     { id: "Provisioning", label: "Provisioning", Icon: Rocket },
     { id: "Mensagens", label: "Mensagens", Icon: MessageSquare, notifs: newMsgs },
@@ -244,6 +247,7 @@ export default function DashboardWithCollapsibleSidebar({
                 {active === "Propostas" && <ProposalsSystemView notify={notify} company={company} catalog={proposalCatalog} />}
                 {active === "Domínio Admin" && <DomainsAdminView notify={notify} />}
                 {active === "Alojamento" && <HostingAdminView notify={notify} />}
+                {active === "Contas de alojamento" && <AdminHostingAccountsView notify={notify} />}
                 {active === "Subscrições" && (
                   <SubscriptionsAdminView subscriptions={data.subscriptions} actions={actions} isBusy={isBusy} notify={notify} />
                 )}

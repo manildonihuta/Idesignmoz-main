@@ -19,6 +19,8 @@ export const cloudVpsProvider: HostingProvider = {
     return Boolean(process.env.VPS_API_URL && process.env.VPS_API_KEY);
   },
 
+  capabilities: ["accounts"] as const,
+
   async provision(req: HostingProvisionRequest): Promise<HostingProvisionResponse> {
     const apiUrl = process.env.VPS_API_URL!;
     const apiKey = process.env.VPS_API_KEY!;
