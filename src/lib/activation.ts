@@ -7,6 +7,7 @@ import { notifyEvent } from "@/lib/notifications";
 import { runHostingProvisioningFlow } from "@/lib/provisioning/hosting/orchestrator";
 import type { HostingProvisionRequest } from "@/lib/provisioning/hosting/types";
 import { runDomainProvisioningFlow } from "@/lib/provisioning/domain/orchestrator";
+import { runEmailProvisioningFlow } from "@/lib/provisioning/email/orchestrator";
 import {
   claimJob,
   listOpenJobs,
@@ -244,6 +245,71 @@ async function processDomain(job: ProvisioningJob): Promise<{ ok: boolean; error
   return { ok: true };
 }
 
+async function processEmail(job: ProvisioningJob): Promise<{ ok: boolean; error?: string }> {
+  const { data: service, error: srvErr } = await supabaseAdmin
+    .from("email_services")
+    .select("*")
+    .eq("id", job.ref_id)
+    .maybeSingle();
+  if (srvErr || !service) {
+    return { ok: false, error: "Serviço de email não encontrado." };
+  }
+
+  const customer = await orderCustomer(job.order_id);
+
+  try {
+    const result = await runEmailProvisioningFlow(job.ref_id);
+    if (!result.ok) {
+      return { ok: false, error: result.error ?? "Falha no aprovisionamento de email." };
+    }
+    if (result.already) {
+      return { ok: true };
+    }
+
+    const meta = (service.meta ?? {}) as Record<string, unknown>;
+    const domain = String(service.domain ?? "");
+    const planName = String(meta.planName ?? service.plan_name ?? "Email");
+
+    await notifyEvent(
+      "email.service_active",
+      { domain, planName },
+      {
+        recipients: customer.email
+          ? [
+              {
+                userId: String(service.customer_id ?? ""),
+                email: customer.email,
+                name: customer.name || "",
+              },
+            ]
+          : [],
+      },
+    );
+    await logAudit({
+      action: AUDIT.EMAIL_PROVISIONING_COMPLETED,
+      entity: "email_service",
+      entityId: service.id as string,
+      meta: { domain, planName, orderId: job.order_id, automatic: true },
+    });
+
+    return { ok: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await logAudit({
+      action: AUDIT.EMAIL_PROVISIONING_FAILED,
+      entity: "email_service",
+      entityId: service.id as string,
+      meta: { error: message, orderId: job.order_id, automatic: true },
+    });
+    await notifyEvent(
+      "email.provisioning_failed",
+      { domain: String(service.domain ?? ""), reason: message },
+      { roles: ["super_admin", "admin", "manager", "developer", "support"] },
+    );
+    return { ok: false, error: message };
+  }
+}
+
 /** Process the activation queue (idempotent, safe under concurrent cron runs). */
 export async function processActivationJobs(limit = 20): Promise<ActivationSummary> {
   const jobs = await listOpenJobs(limit);
@@ -256,7 +322,11 @@ export async function processActivationJobs(limit = 20): Promise<ActivationSumma
 
     try {
       const outcome =
-        job.kind === "hosting" ? await processHosting(job) : await processDomain(job);
+        job.kind === "hosting"
+          ? await processHosting(job)
+          : job.kind === "domain"
+            ? await processDomain(job)
+            : await processEmail(job);
       if (outcome.ok) {
         summary.succeeded += 1;
         await markJobDone(job.id, job.order_id);

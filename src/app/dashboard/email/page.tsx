@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { EmailsView } from "@/components/emails-view";
 import { getClientContext } from "@/lib/client";
+import { listClientEmailServices } from "@/lib/client-data";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,11 @@ export default async function DashboardEmailPage() {
   const ctx = await getClientContext();
   if (!ctx.authenticated) redirect("/login");
 
+  const services = await listClientEmailServices(ctx);
+
   return (
     <DashboardShell>
-      <EmailsView />
+      <EmailsView services={services} />
     </DashboardShell>
   );
 }

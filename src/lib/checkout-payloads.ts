@@ -19,6 +19,7 @@ export type PlanRef = { id: string; storage_gb: number };
 export type SettlementPayloads = {
   domains: unknown[];
   subs: unknown[];
+  emails: unknown[];
 };
 
 function orderLabel(meta: Record<string, unknown> | null | undefined): string {
@@ -26,8 +27,9 @@ function orderLabel(meta: Record<string, unknown> | null | undefined): string {
 }
 
 function subscriptionKind(catalogKind: string): "hosting" | "service" | null {
-  if (catalogKind === "hosting" || catalogKind === "email") return "hosting";
-  if (catalogKind === "seo" || catalogKind === "marketing" || catalogKind === "maintenance") return "service";
+  if (catalogKind === "hosting") return "hosting";
+  if (catalogKind === "email" || catalogKind === "seo" || catalogKind === "marketing" || catalogKind === "maintenance")
+    return "service";
   return null;
 }
 
@@ -47,6 +49,7 @@ export function buildSettlementPayloads(opts: {
 }): SettlementPayloads {
   const domains: unknown[] = [];
   const subs: unknown[] = [];
+  const emails: unknown[] = [];
 
   for (const item of opts.items) {
     const meta = item.meta ?? {};
@@ -96,7 +99,26 @@ export function buildSettlementPayloads(opts: {
       }
       subs.push(sub);
     }
+
+    if (catalogKind === "email" && fullDomain) {
+      const cycle = sellPeriodToCycle(period);
+      if (cycle) {
+        const productId = typeof meta.product_id === "string" ? meta.product_id : "";
+        emails.push({
+          customer_id: opts.customerId,
+          catalog_product_id: productId || null,
+          domain: fullDomain,
+          plan_name: item.label,
+          period: cycle,
+          mailbox_limit: Number(meta.mailboxes ?? meta.mailbox_limit ?? 5),
+          storage_limit_gb: Number(meta.storage_gb ?? meta.storage_limit_gb ?? 5),
+          expires_at: nextRenewal(new Date(), cycle),
+          dns_status: "pending",
+          meta,
+        });
+      }
+    }
   }
 
-  return { domains, subs };
+  return { domains, subs, emails };
 }

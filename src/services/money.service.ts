@@ -226,13 +226,14 @@ export async function settlePendingPayment(
       p_payment_id: payment.id,
       p_domains: payloads.domains,
       p_subs: payloads.subs,
+      p_email: payloads.emails,
     },
   );
   if (rpcError) {
     serverLogError("service:money.settle", rpcError);
     return fail(500, "Não foi possível confirmar o pagamento.");
   }
-  const settled = result as { ok?: boolean; error?: string; order_id: string; number?: string | null; status?: string; subscriptions?: Array<Record<string, unknown>> };
+  const settled = result as { ok?: boolean; error?: string; order_id: string; number?: string | null; status?: string; subscriptions?: Array<Record<string, unknown>>; emails?: Array<Record<string, unknown>> };
   if (settled.ok === false) {
     return fail(409, settled.error ?? "Não foi possível confirmar o pagamento.");
   }
@@ -299,6 +300,20 @@ export async function settlePendingPayment(
       kind: sub.kind,
       period: String(sub.period),
       price: Number(sub.price),
+    });
+  }
+
+  // Email services materialized with this settlement.
+  for (const email of settled.emails ?? []) {
+    await logAudit({
+      action: AUDIT.EMAIL_SERVICE_CREATED,
+      entity: "email_service",
+      entityId: String(email.id),
+      actorId: actor?.userId ?? payment.customer_id ?? undefined,
+      meta: { domain: email.domain, orderId: order.id },
+    });
+    await notifyEvent("email.service_created", {
+      domain: String(email.domain ?? ""),
     });
   }
 

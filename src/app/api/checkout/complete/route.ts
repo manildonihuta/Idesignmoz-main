@@ -43,7 +43,8 @@ function orderItemKind(itemKind: string): string {
 }
 
 function subscriptionKind(itemKind: string): string | null {
-  if (itemKind === "hosting" || itemKind === "email") return "hosting";
+  if (itemKind === "hosting") return "hosting";
+  if (itemKind === "email") return "service";
   if (itemKind === "seo" || itemKind === "marketing" || itemKind === "maintenance") return "service";
   return null;
 }
@@ -182,6 +183,7 @@ export async function POST(request: NextRequest) {
   const pItems: unknown[] = [];
   const pDomains: unknown[] = [];
   const pSubs: unknown[] = [];
+  const pEmails: unknown[] = [];
 
   for (const item of items) {
     if (typeof item.label !== "string" || !item.label.trim()) {
@@ -246,6 +248,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const itemProductRow =
+      (typeof item.productId === "string" ? catalogById.get(item.productId) : undefined) ??
+      catalogByName.get(String(item.label));
+    const itemProductMeta = itemProductRow?.meta ?? {};
+
     pItems.push({
       kind: orderKind,
       label: item.label,
@@ -260,6 +267,12 @@ export async function POST(request: NextRequest) {
         product_id: typeof item.productId === "string" ? item.productId : undefined,
         category: typeof item.category === "string" ? item.category : undefined,
         domain: typeof item.fullDomain === "string" && item.fullDomain ? item.fullDomain : undefined,
+        ...(kind === "email"
+          ? {
+              mailboxes: Number(itemProductMeta.mailboxes ?? itemProductMeta.mailbox_limit ?? 5),
+              storage_gb: Number(itemProductMeta.storage_gb ?? itemProductMeta.storage_limit_gb ?? 5),
+            }
+          : {}),
       },
     });
 
@@ -311,6 +324,39 @@ export async function POST(request: NextRequest) {
         };
       }
       pSubs.push(subEntry);
+    }
+
+    // Email plans → one email service per domain (recurring only for now).
+    if (kind === "email" && typeof item.fullDomain === "string" && item.fullDomain.trim() && item.period !== "one_time") {
+      const cycle = sellPeriodToCycle(item.period);
+      if (!cycle) {
+        return Response.json({ ok: false, error: "Período de facturação inválido." }, { status: 400 });
+      }
+      const productRow =
+        (typeof item.productId === "string" ? catalogById.get(item.productId) : undefined) ??
+        catalogByName.get(String(item.label));
+      const productMeta = productRow?.meta ?? {};
+      const fullDomain = item.fullDomain.trim().toLowerCase();
+      pEmails.push({
+        customer_id: customerId,
+        catalog_product_id: typeof item.productId === "string" ? item.productId : null,
+        domain: fullDomain,
+        plan_name: String(item.label),
+        period: cycle,
+        mailbox_limit: Number(productMeta.mailboxes ?? productMeta.mailbox_limit ?? 5),
+        storage_limit_gb: Number(productMeta.storage_gb ?? productMeta.storage_limit_gb ?? 5),
+        expires_at: nextRenewalDay(new Date(), cycle),
+        dns_status: "pending",
+        meta: {
+          catalog_kind: kind,
+          period: item.period,
+          currency: orderCurrency,
+          domain: fullDomain,
+          planName: String(item.label),
+          mailboxes: Number(productMeta.mailboxes ?? productMeta.mailbox_limit ?? 5),
+          storage_gb: Number(productMeta.storage_gb ?? productMeta.storage_limit_gb ?? 5),
+        },
+      });
     }
   }
 
@@ -456,6 +502,7 @@ export async function POST(request: NextRequest) {
       },
       p_domains: pDomains,
       p_subs: pSubs,
+      p_email: pEmails,
     });
 
     if (error) {

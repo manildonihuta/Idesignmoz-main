@@ -101,7 +101,7 @@ describe("buildSettlementPayloads", () => {
       planBySlug,
       planByName,
     });
-    expect(subs.map((s) => (s as Record<string, unknown>).kind)).toEqual(["hosting", "service"]);
+    expect(subs.map((s) => (s as Record<string, unknown>).kind)).toEqual(["service", "service"]);
   });
 
   it("skips one_time subscriptions (no cycle)", () => {
@@ -142,5 +142,82 @@ describe("buildSettlementPayloads", () => {
     const s = subs[0] as { period: BillingCycle; plan_id: string | null };
     expect(s.plan_id).toBe("pl-h1");
     expect(s.period).toBe("year");
+  });
+
+  it("builds an email service payload from stored item meta", () => {
+    const { emails } = buildSettlementPayloads({
+      items: [
+        item({
+          kind: "email",
+          label: "Email Basic",
+          unit_price: 500,
+          meta: {
+            catalog_kind: "email",
+            domain: "site.com",
+            period: "monthly",
+            product_id: "email-basic",
+            mailboxes: 25,
+            storage_gb: 20,
+          },
+        }),
+      ],
+      customerId: "cust-1",
+      method: "mpesa",
+      currency: "MZN",
+      planBySlug,
+      planByName,
+    });
+    expect(emails).toHaveLength(1);
+    const e = emails[0] as Record<string, unknown>;
+    expect(e.customer_id).toBe("cust-1");
+    expect(e.catalog_product_id).toBe("email-basic");
+    expect(e.domain).toBe("site.com");
+    expect(e.plan_name).toBe("Email Basic");
+    expect(e.period).toBe("month");
+    expect(e.mailbox_limit).toBe(25);
+    expect(e.storage_limit_gb).toBe(20);
+    expect(e.dns_status).toBe("pending");
+    expect(typeof e.expires_at).toBe("string");
+  });
+
+  it("defaults email limits when meta is incomplete", () => {
+    const { emails } = buildSettlementPayloads({
+      items: [
+        item({
+          kind: "email",
+          label: "Email",
+          unit_price: 500,
+          meta: { catalog_kind: "email", domain: "site.com", period: "annual" },
+        }),
+      ],
+      customerId: null,
+      method: "card",
+      currency: "MZN",
+      planBySlug,
+      planByName,
+    });
+    const e = emails[0] as { mailbox_limit: number; storage_limit_gb: number; customer_id: string | null };
+    expect(e.mailbox_limit).toBe(5);
+    expect(e.storage_limit_gb).toBe(5);
+    expect(e.customer_id).toBeNull();
+  });
+
+  it("does not emit email services for one_time purchases", () => {
+    const { emails } = buildSettlementPayloads({
+      items: [
+        item({
+          kind: "email",
+          label: "Email",
+          unit_price: 500,
+          meta: { catalog_kind: "email", domain: "site.com", period: "one_time" },
+        }),
+      ],
+      customerId: "c",
+      method: "card",
+      currency: "MZN",
+      planBySlug,
+      planByName,
+    });
+    expect(emails).toHaveLength(0);
   });
 });

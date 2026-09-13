@@ -216,6 +216,43 @@ export const EVENTS = {
       link: ADMIN_LINK,
     }),
   },
+  "email.service_created": {
+    key: "email.service_created",
+    label: "Serviço de email criado",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.service_created",
+      title: `Serviço de email — ${escapeHtml(p.domain)}`,
+      body: `Um serviço de email para ${escapeHtml(p.domain)} foi encomendado (${
+        escapeHtml(p.planName ?? "") + (p.mailboxes != null ? ` · ${escapeHtml(p.mailboxes)} caixas` : "")
+      }). Aguarda aprovisionamento.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "email.service_active": {
+    key: "email.service_active",
+    label: "Serviço de email ativado",
+    roles: ["super_admin", "admin", "manager", "developer"],
+    render: (p) => ({
+      key: "email.service_active",
+      title: `Email ativado — ${escapeHtml(p.domain)}`,
+      body: `O serviço de email ${escapeHtml(p.planName ?? "")} de ${escapeHtml(p.domain)} foi ativado.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "email.provisioning_failed": {
+    key: "email.provisioning_failed",
+    label: "Aprovisionamento de email falhou",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.provisioning_failed",
+      title: `Email — ativação falhou — ${escapeHtml(p.domain)}`,
+      body: `A ativação do serviço de email de ${escapeHtml(p.domain)} falhou.${
+        p.reason ? ` Motivo: ${escapeHtml(p.reason)}.` : ""
+      }`,
+      link: ADMIN_LINK,
+    }),
+  },
   "subscription.created": {
     key: "subscription.created",
     label: "Subscrição criada",

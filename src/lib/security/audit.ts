@@ -107,4 +107,7 @@ export const AUDIT = {
   REFUND_APPROVED: "refund.approved",
   REFUND_REJECTED: "refund.rejected",
   CREDIT_ISSUED: "credit.issued",
+  EMAIL_SERVICE_CREATED: "email.service.created",
+  EMAIL_PROVISIONING_COMPLETED: "email.provisioning.completed",
+  EMAIL_PROVISIONING_FAILED: "email.provisioning.failed",
 } as const;

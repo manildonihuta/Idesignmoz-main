@@ -7,7 +7,7 @@ import { serverLogError } from "@/lib/server-log";
 export type ProvisioningJob = {
   id: string;
   order_id: string;
-  kind: "hosting" | "domain";
+  kind: "hosting" | "domain" | "email";
   ref_id: string;
   status: "pending" | "running" | "done" | "failed";
   attempts: number;
@@ -18,7 +18,7 @@ export type ProvisioningJob = {
 
 export async function enqueueProvisioningJob(
   orderId: string,
-  kind: "hosting" | "domain",
+  kind: "hosting" | "domain" | "email",
   refId: string,
 ): Promise<boolean> {
   const { error } = await supabaseAdmin.from("provisioning_jobs").insert({

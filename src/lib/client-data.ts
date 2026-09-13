@@ -342,10 +342,11 @@ export async function countClientItems(ctx: AuthContext): Promise<{
   projects: number;
   orders: number;
   hosting: number;
+  email: number;
 }> {
-  if (!ctx.userId) return { domains: 0, tickets: 0, invoices: 0, projects: 0, orders: 0, hosting: 0 };
+  if (!ctx.userId) return { domains: 0, tickets: 0, invoices: 0, projects: 0, orders: 0, hosting: 0, email: 0 };
 
-  const [ticketsRes, invoicesRes, projectsRes, ordersRes, hostingRes] = await Promise.all([
+  const [ticketsRes, invoicesRes, projectsRes, ordersRes, hostingRes, emailRes] = await Promise.all([
     supabaseAdmin
       .from("tickets")
       .select("id", { count: "exact", head: true })
@@ -366,6 +367,10 @@ export async function countClientItems(ctx: AuthContext): Promise<{
       .from("hosting_accounts")
       .select("id", { count: "exact", head: true })
       .eq("customer_id", ctx.userId),
+    supabaseAdmin
+      .from("email_services")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", ctx.userId),
   ]);
 
   return {
@@ -375,6 +380,7 @@ export async function countClientItems(ctx: AuthContext): Promise<{
     projects: projectsRes.count ?? 0,
     orders: ordersRes.count ?? 0,
     hosting: hostingRes.count ?? 0,
+    email: emailRes.count ?? 0,
   };
 }
 
@@ -407,6 +413,45 @@ export async function listClientHostingAccounts(ctx: AuthContext): Promise<Clien
     provisionedAt: h.provisioned_at,
     renewsAt: h.renews_at,
     createdAt: h.created_at,
+  }));
+}
+
+export type ClientEmailService = {
+  id: string;
+  domain: string;
+  planName: string;
+  status: string;
+  dnsStatus: string;
+  mailboxLimit: number;
+  storageLimitGb: number;
+  expiresAt: string | null;
+  createdAt: string | null;
+  providerLabel: string | null;
+};
+
+export async function listClientEmailServices(ctx: AuthContext): Promise<ClientEmailService[]> {
+  if (!ctx.userId) return [];
+
+  const { data } = await supabaseAdmin
+    .from("email_services")
+    .select("id, domain, plan_name, status, dns_status, mailbox_limit, storage_limit_gb, expires_at, created_at, meta")
+    .eq("customer_id", ctx.userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    domain: row.domain,
+    planName: row.plan_name,
+    status: row.status,
+    dnsStatus: row.dns_status,
+    mailboxLimit: Number(row.mailbox_limit ?? 0),
+    storageLimitGb: Number(row.storage_limit_gb ?? 0),
+    expiresAt: row.expires_at ?? null,
+    createdAt: row.created_at ?? null,
+    providerLabel:
+      row.meta && typeof row.meta === "object" && "providerLabel" in row.meta
+        ? String((row.meta as Record<string, unknown>).providerLabel ?? "")
+        : null,
   }));
 }
 
