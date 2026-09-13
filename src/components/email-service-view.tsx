@@ -20,6 +20,15 @@ const MAILBOX_STATUS: Record<string, { label: string; tone: string }> = {
   error: { label: "Erro", tone: "text-red-600" },
 };
 
+const DNS_STATUS: Record<string, string> = {
+  none: "Sem DNS",
+  pending: "Pendente",
+  verifying: "A verificar",
+  verified: "Verificado",
+  failed: "Incompleto",
+  external: "Externo",
+};
+
 function fmt(date: string | null): string {
   if (!date) return "—";
   try {
@@ -355,10 +364,14 @@ export function EmailServiceView({ service: initial }: { service: ClientEmailSer
           <div className="text-sm text-muted">Armazenamento</div>
           <div className="mt-1 text-xl font-semibold">{service.storageLimitGb} GB</div>
         </div>
-        <div className="rounded-xl border border-line bg-surface p-5">
-          <div className="text-sm text-muted">DNS</div>
-          <div className="mt-1 text-xl font-semibold capitalize">{service.dnsStatus}</div>
-        </div>
+        <Link
+          href={`/dashboard/email/${service.id}/dns`}
+          className="block rounded-xl border border-line bg-surface p-5 hover:border-emerald-400"
+        >
+          <div className="text-sm text-muted">DNS · {DNS_STATUS[service.dnsStatus] ?? service.dnsStatus}</div>
+          <div className="mt-1 text-sm font-semibold">Assistente de registos</div>
+          <div className="mt-1 text-xs text-muted">MX, SPF, DKIM e DMARC →</div>
+        </Link>
       </div>
 
       {canCreate && (

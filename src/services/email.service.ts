@@ -8,7 +8,7 @@ import { logEmailActivity } from "@/lib/provisioning/email/activity";
 import { fail, type ServiceResult } from "./result";
 import type { AuthContext } from "@/lib/client";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LOCAL_PART_RE = /^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
@@ -61,7 +61,7 @@ export type EmailServiceDetail = {
   usage: { storageUsedGb: number; mailboxesUsed: number };
 };
 
-type EmailServiceRow = {
+export type EmailServiceRow = {
   id: string;
   customer_id: string | null;
   domain: string;
@@ -76,7 +76,7 @@ type EmailServiceRow = {
   meta: Record<string, unknown> | null;
 };
 
-async function ownedService(ctx: AuthContext, serviceId: string): Promise<EmailServiceRow> {
+export async function ownedService(ctx: AuthContext, serviceId: string): Promise<EmailServiceRow> {
   if (!ctx.userId) throw { status: 401, error: "Não autenticado." };
   if (!UUID_RE.test(serviceId)) throw { status: 400, error: "Identificador inválido." };
 

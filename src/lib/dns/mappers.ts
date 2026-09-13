@@ -72,7 +72,7 @@ function normalizeComparison(value: string): string {
     .replace(/^"(.*)"$/, "$1");
 }
 
-async function queryDoH(name: string, type: string): Promise<string[]> {
+export async function queryDoH(name: string, type: string): Promise<string[]> {
   try {
     const url = new URL("https://dns.google/resolve");
     url.searchParams.set("name", name);

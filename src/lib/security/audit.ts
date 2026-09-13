@@ -118,4 +118,5 @@ export const AUDIT = {
   EMAIL_ALIAS_DELETED: "email.alias.deleted",
   EMAIL_FORWARDING_UPDATED: "email.forwarding.updated",
   EMAIL_AUTORESPONDER_UPDATED: "email.autoresponder.updated",
+  EMAIL_DNS_VERIFIED: "email.dns.verified",
 } as const;

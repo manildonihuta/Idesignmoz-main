@@ -587,6 +587,79 @@ export async function getClientEmailService(
   };
 }
 
+export type ClientEmailDnsValue = {
+  type: string;
+  name: string;
+  value: string;
+  priority: number | null;
+};
+
+export type ClientEmailDnsRecord = {
+  id: string;
+  recordType: string;
+  status: string;
+  value: ClientEmailDnsValue | null;
+  selector: string | null;
+  lastCheckedAt: string | null;
+};
+
+export type ClientEmailDnsBundle = {
+  service: { id: string; domain: string; dnsStatus: string };
+  records: ClientEmailDnsRecord[];
+};
+
+export async function getClientEmailDns(
+  ctx: AuthContext,
+  serviceId: string,
+): Promise<ClientEmailDnsBundle | null> {
+  if (!ctx.userId) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(serviceId)) return null;
+
+  const { data } = await supabaseAdmin
+    .from("email_services")
+    .select("id, domain, dns_status")
+    .eq("id", serviceId)
+    .eq("customer_id", ctx.userId)
+    .maybeSingle();
+  if (!data) return null;
+
+  const { data: records } = await supabaseAdmin
+    .from("email_dns_configs")
+    .select("id, record_type, status, value, selector, last_checked_at")
+    .eq("email_service_id", serviceId)
+    .order("record_type", { ascending: true });
+
+  return {
+    service: {
+      id: String(data.id),
+      domain: String(data.domain ?? ""),
+      dnsStatus: String(data.dns_status ?? "pending"),
+    },
+    records: (records ?? []).map((r) => {
+      const raw = r as Record<string, unknown>;
+      const value =
+        raw.value && typeof raw.value === "object"
+          ? (raw.value as Record<string, unknown>)
+          : null;
+      return {
+        id: String(raw.id),
+        recordType: String(raw.record_type ?? ""),
+        status: String(raw.status ?? "pending"),
+        value: value
+          ? {
+              type: String(value.type ?? "TXT"),
+              name: String(value.name ?? ""),
+              value: String(value.value ?? ""),
+              priority: value.priority == null ? null : Number(value.priority),
+            }
+          : null,
+        selector: raw.selector ? String(raw.selector) : null,
+        lastCheckedAt: raw.last_checked_at ? String(raw.last_checked_at) : null,
+      };
+    }),
+  };
+}
+
 /**
  * Distinct product categories the customer owns, built from real commerce and
  * service tables owned by the current user. Used to drive the cross-sell
