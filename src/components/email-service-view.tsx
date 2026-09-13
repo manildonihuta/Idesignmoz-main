@@ -2,7 +2,48 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import type { ClientEmailMailbox, ClientEmailServiceDetail } from "@/lib/client-data";
+
+function quotaPercent(usedGb: number, limitGb: number): number {
+  return limitGb > 0 ? Math.min(100, Math.round((usedGb / limitGb) * 100)) : 0;
+}
+
+function quotaBarClass(pct: number): string {
+  if (pct >= 95) return "bg-red-500";
+  if (pct >= 80) return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+function QuotaBanner({ usage, domain }: { usage: { storageUsedGb: number; storageLimitGb: number }; domain: string }) {
+  const pct = quotaPercent(usage.storageUsedGb, usage.storageLimitGb);
+  if (pct < 80) return null;
+  const critical = pct >= 95;
+  return (
+    <div
+      className={
+        critical
+          ? "rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+          : "rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+      }
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <p className="font-semibold">
+            {critical ? "Armazenamento de email quase cheio" : "Armazenamento de email a atingir o limite"}
+          </p>
+          <p className="text-xs">
+            {domain} está a {pct}% ({usage.storageUsedGb} de {usage.storageLimitGb} GB).{" "}
+            {critical
+              ? "Acima deste limite as caixas podem deixar de receber email. Apaga arquivos antigos ou aumenta o plano."
+              : "Considera apagar arquivos antigos ou aumentar o plano."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const SERVICE_STATUS: Record<string, { label: string; tone: string }> = {
   provisioning: { label: "A aprovisionar", tone: "text-amber-600" },
@@ -281,7 +322,7 @@ function UsagePanel({
   };
 
   const { usage } = service;
-  const pct = usage.storageLimitGb > 0 ? Math.min(100, Math.round((usage.storageUsedGb / usage.storageLimitGb) * 100)) : 0;
+  const pct = quotaPercent(usage.storageUsedGb, usage.storageLimitGb);
 
   return (
     <div className="rounded-xl border border-line bg-surface p-5">
@@ -308,7 +349,7 @@ function UsagePanel({
             <span className="text-xs text-muted">({pct}%)</span>
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line">
-            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+            <div className={`h-full rounded-full ${quotaBarClass(pct)}`} style={{ width: `${pct}%` }} />
           </div>
         </div>
         <div className="rounded-lg border border-line bg-panel p-3">
@@ -520,6 +561,8 @@ export function EmailServiceView({ service: initial }: { service: ClientEmailSer
       {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {notice && <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
 
+      <QuotaBanner usage={service.usage} domain={service.domain} />
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-line bg-surface p-5">
           <div className="text-sm text-muted">Caixas</div>
@@ -614,7 +657,7 @@ export function EmailServiceView({ service: initial }: { service: ClientEmailSer
                   </span>
                   <div className="h-1.5 w-40 overflow-hidden rounded-full bg-line">
                     <div
-                      className="h-full rounded-full bg-emerald-500"
+                      className={`h-full rounded-full ${quotaBarClass(Math.min(100, m.quotaPercent || 0))}`}
                       style={{ width: `${Math.min(100, m.quotaPercent || 0)}%` }}
                     />
                   </div>
