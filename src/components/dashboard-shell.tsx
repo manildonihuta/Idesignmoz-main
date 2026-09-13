@@ -4,20 +4,47 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-const NAV = [
-  { href: "/dashboard", label: "Visão geral", icon: "□" },
-  { href: "/dashboard/websites", label: "Websites", icon: "◻" },
-  { href: "/dashboard/ai-builder", label: "Criar com IA", icon: "◇" },
-  { href: "/dashboard/domains", label: "Domínios", icon: "◎" },
-  { href: "/dashboard/hosting", label: "Alojamento", icon: "▣" },
-  { href: "/dashboard/subscriptions", label: "Subscrições", icon: "↻" },
-  { href: "/dashboard/projects", label: "Projectos", icon: "◫" },
-  { href: "/dashboard/orders", label: "Encomendas", icon: "▤" },
-  { href: "/dashboard/invoices", label: "Facturas", icon: "▥" },
-  { href: "/dashboard/payments", label: "Pagamentos", icon: "⬡" },
-  { href: "/dashboard/email", label: "Email", icon: "✉" },
-  { href: "/dashboard/tickets", label: "Tickets", icon: "◈" },
-  { href: "/dashboard/profile", label: "Perfil", icon: "◉" },
+type NavItem = { href: string; label: string; icon: string };
+type NavGroup = { title: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    title: "Principal",
+    items: [{ href: "/dashboard", label: "Visão geral", icon: "□" }],
+  },
+  {
+    title: "Criar",
+    items: [
+      { href: "/dashboard/ai-builder", label: "Criar com IA", icon: "◇" },
+      { href: "/templates", label: "Modelos de design", icon: "▤" },
+    ],
+  },
+  {
+    title: "Presença online",
+    items: [
+      { href: "/dashboard/websites", label: "Websites", icon: "◻" },
+      { href: "/dashboard/domains", label: "Domínios", icon: "◎" },
+      { href: "/dashboard/hosting", label: "Alojamento", icon: "▣" },
+      { href: "/dashboard/email", label: "Email", icon: "✉" },
+    ],
+  },
+  {
+    title: "Crescer",
+    items: [
+      { href: "/dashboard/subscriptions", label: "Subscrições", icon: "↻" },
+      { href: "/dashboard/projects", label: "Projectos", icon: "◫" },
+      { href: "/dashboard/orders", label: "Encomendas", icon: "▤" },
+      { href: "/dashboard/invoices", label: "Facturas", icon: "▥" },
+      { href: "/dashboard/payments", label: "Pagamentos", icon: "⬡" },
+    ],
+  },
+  {
+    title: "Conta",
+    items: [
+      { href: "/dashboard/tickets", label: "Tickets", icon: "◈" },
+      { href: "/dashboard/profile", label: "Perfil", icon: "◉" },
+    ],
+  },
 ];
 
 export function DashboardShell({ children }: { children: ReactNode }) {
@@ -37,15 +64,20 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           <Link href="/">IDesign Moz</Link>
         </div>
         <nav className="dash-nav">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              className={`dash-link ${isActive(item.href) ? "active" : ""}`}
-              href={item.href}
-            >
-              <span className="dash-icon">{item.icon}</span>
-              {item.label}
-            </Link>
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title}>
+              <p className="dash-nav-label">{group.title}</p>
+              {group.items.map((item) => (
+                <Link
+                  key={item.href}
+                  className={`dash-link ${isActive(item.href) ? "active" : ""}`}
+                  href={item.href}
+                >
+                  <span className="dash-icon">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="dash-footer">

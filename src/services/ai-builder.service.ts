@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { AuthContext } from "@/lib/client";
 import { fail, type ServiceResult } from "@/services/result";
 import { isAiConfigured, chatJson, AiError } from "@/lib/ai/provider";
-import { buildSitePrompt, buildRewriteSectionPrompt } from "@/lib/ai/builder-prompt";
+import { buildSitePrompt, buildRewriteSectionPrompt, buildAssistantPrompt } from "@/lib/ai/builder-prompt";
 import {
   parseSitePayload,
   parseSectionPayload,
@@ -18,6 +18,17 @@ import { notifyEvent } from "@/lib/notifications";
 import { serverLogError } from "@/lib/server-log";
 
 export type BuilderSiteStatus = "draft" | "generating" | "ready" | "failed" | "published" | "archived";
+
+const FREE_SITE_LIMIT = 3;
+
+async function countActiveSites(userId: string): Promise<number> {
+  const { count } = await supabaseAdmin
+    .from("builder_sites")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", userId)
+    .neq("status", "archived");
+  return count ?? 0;
+}
 
 type BuilderSiteRow = {
   id: string;
@@ -150,7 +161,7 @@ async function markFailed(siteId: string, err: unknown): Promise<void> {
     .eq("id", siteId);
 }
 
-export async function listSites(ctx: AuthContext): Promise<ServiceResult<{ sites: BuilderSite[] }>> {
+export async function listSites(ctx: AuthContext): Promise<ServiceResult<{ sites: BuilderSite[]; quota: { used: number; limit: number } }>> {
   if (!ctx.userId) return fail(401, "Não autenticado.");
   const { data, error } = await supabaseAdmin
     .from("builder_sites")
@@ -162,7 +173,8 @@ export async function listSites(ctx: AuthContext): Promise<ServiceResult<{ sites
     serverLogError("ai-builder:list", error);
     return fail(500, "Não foi possível listar os sites.");
   }
-  return { ok: true, sites: (data ?? []).map((r) => toSite(r as BuilderSiteRow)) };
+  const used = await countActiveSites(ctx.userId);
+  return { ok: true, sites: (data ?? []).map((r) => toSite(r as BuilderSiteRow)), quota: { used, limit: FREE_SITE_LIMIT } };
 }
 
 export async function getSite(ctx: AuthContext, siteId: string): Promise<ServiceResult<{ site: BuilderSite }>> {
@@ -181,6 +193,10 @@ export type GenerateSiteInput = {
   tagline?: string;
   brief: string;
   primaryColor?: string;
+  accentColor?: string;
+  colorPreference?: "auto" | "brand" | "custom";
+  style?: string;
+  typography?: "sans" | "display" | "mono";
 };
 
 export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): Promise<ServiceResult<{ siteId: string; pages: number }>> {
@@ -192,6 +208,17 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
   const industry = input.industry?.trim().slice(0, 120) || null;
   const tagline = input.tagline?.trim().slice(0, 300) || "";
   const primaryColor = input.primaryColor?.trim().match(/^#[0-9a-fA-F]{3,8}$/)?.[0];
+  const accentColor = input.accentColor?.trim().match(/^#[0-9a-fA-F]{3,8}$/)?.[0];
+  const colorPreference: "auto" | "brand" | "custom" =
+    input.colorPreference === "brand" || input.colorPreference === "custom" ? input.colorPreference : "auto";
+  const style = input.style?.trim().slice(0, 40) || undefined;
+  const typography: "sans" | "display" | "mono" | undefined =
+    input.typography === "sans" || input.typography === "display" || input.typography === "mono" ? input.typography : undefined;
+
+  // Priority: explicit primaryColor > brand > custom accent. Falls back to AI pick.
+  let forcedPrimaryColor = primaryColor;
+  if (!forcedPrimaryColor && colorPreference === "brand") forcedPrimaryColor = "#E31E24";
+  if (!forcedPrimaryColor && colorPreference === "custom" && accentColor) forcedPrimaryColor = accentColor;
 
   if (!businessName) return fail(400, "Indique o nome do negócio.");
   if (brief.length < 20) return fail(400, "Descreva o seu negócio em pelo menos 20 caracteres.");
@@ -218,6 +245,13 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
       })
       .eq("id", siteId);
   } else {
+    const activeCount = await countActiveSites(ctx.userId);
+    if (activeCount >= FREE_SITE_LIMIT) {
+      return fail(
+        403,
+        `Atingiu o limite de ${FREE_SITE_LIMIT} sites gratuitos. Faça upgrade para criar mais websites com IA.`,
+      );
+    }
     const { data: created, error } = await supabaseAdmin
       .from("builder_sites")
       .insert({
@@ -227,7 +261,11 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
         domain,
         tagline,
         brief,
-        theme: primaryColor ? { primaryColor } : {},
+        theme: {
+          ...(forcedPrimaryColor ? { primaryColor: forcedPrimaryColor } : {}),
+          ...(accentColor ? { accentColor } : {}),
+          ...(typography ? { font: typography } : {}),
+        },
         status: "generating",
       })
       .select("id")
@@ -250,7 +288,11 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
         domain,
         tagline,
         brief,
-        primaryColor,
+        primaryColor: forcedPrimaryColor,
+        accentColor,
+        colorPreference,
+        style,
+        typography,
       }),
     );
     const parsed = parseSitePayload(raw);
@@ -285,7 +327,13 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
     return fail(500, "Não foi possível guardar o site gerado.");
   }
 
-  const theme: Record<string, unknown> = { ...existingTheme, ...(payload.theme ?? {}), ...(primaryColor ? { primaryColor } : {}) };
+  const theme: Record<string, unknown> = {
+    ...existingTheme,
+    ...(payload.theme ?? {}),
+    ...(forcedPrimaryColor ? { primaryColor: forcedPrimaryColor } : {}),
+    ...(accentColor ? { accentColor } : {}),
+    ...(typography ? { font: typography } : {}),
+  };
 
   await supabaseAdmin
     .from("builder_sites")
@@ -339,6 +387,9 @@ export type UpdateSiteInput = {
   industry?: string;
   brief?: string;
   primaryColor?: string;
+  accentColor?: string;
+  typography?: "sans" | "display" | "mono";
+  mode?: "dark" | "light";
 };
 
 export async function updateSite(ctx: AuthContext, siteId: string, input: UpdateSiteInput): Promise<ServiceResult<{ site: BuilderSite }>> {
@@ -347,15 +398,36 @@ export async function updateSite(ctx: AuthContext, siteId: string, input: Update
   if (!owned) return fail(404, "Site não encontrado.");
 
   const patch: Record<string, unknown> = {};
+  let themePatch: Record<string, unknown> | undefined;
   if (input.businessName !== undefined) patch.business_name = input.businessName.trim().slice(0, 160);
   if (input.brief !== undefined) patch.brief = input.brief.trim().slice(0, 4000);
   if (input.tagline !== undefined) patch.tagline = input.tagline.trim().slice(0, 300);
   if (input.domain !== undefined) patch.domain = input.domain.trim().slice(0, 200) || null;
   if (input.industry !== undefined) patch.industry = input.industry.trim().slice(0, 120) || null;
-  if (input.primaryColor !== undefined) {
-    const color = input.primaryColor.trim().match(/^#[0-9a-fA-F]{3,8}$/)?.[0];
-    patch.theme = { ...owned.theme, ...(color ? { primaryColor: color } : {}) };
+  if (input.primaryColor !== undefined || input.accentColor !== undefined) {
+    themePatch = { ...owned.theme };
+    if (input.primaryColor !== undefined) {
+      const color = input.primaryColor.trim().match(/^#[0-9a-fA-F]{3,8}$/)?.[0];
+      if (color) themePatch.primaryColor = color;
+      else delete themePatch.primaryColor;
+    }
+    if (input.accentColor !== undefined) {
+      const color = input.accentColor.trim().match(/^#[0-9a-fA-F]{3,8}$/)?.[0];
+      if (color) themePatch.accentColor = color;
+      else delete themePatch.accentColor;
+    }
   }
+  if (input.typography !== undefined) {
+    themePatch = { ...(themePatch ?? owned.theme) };
+    if (input.typography === "sans" || input.typography === "display" || input.typography === "mono") themePatch.font = input.typography;
+    else delete themePatch.font;
+  }
+  if (input.mode !== undefined) {
+    themePatch = { ...(themePatch ?? owned.theme) };
+    if (input.mode === "dark" || input.mode === "light") themePatch.mode = input.mode;
+    else delete themePatch.mode;
+  }
+  if (themePatch) patch.theme = themePatch;
   if (Object.keys(patch).length === 0) return fail(400, "Nada para atualizar.");
 
   const { data, error } = await supabaseAdmin.from("builder_sites").update(patch).eq("id", siteId).select("*").single();
@@ -461,6 +533,139 @@ export async function rewriteSection(
     return fail(500, "Não foi possível guardar a secção reescrita.");
   }
   return { ok: true, section: rewritten };
+}
+
+export type AssistantChatInput = {
+  message: string;
+  pageId?: string;
+};
+
+export type AssistantAction =
+  | { action: "addSection"; section: ParsedSection }
+  | { action: "rewrite"; index: number; section: ParsedSection }
+  | { action: "setTheme"; theme: Record<string, unknown> }
+  | { action: "respond"; text: string };
+
+function parseAssistantTheme(value: unknown): Record<string, unknown> {
+  const obj = asRecord(value);
+  const out: Record<string, unknown> = {};
+  if (typeof obj.primaryColor === "string" && /^#[0-9a-fA-F]{3,8}$/.test(obj.primaryColor)) out.primaryColor = obj.primaryColor;
+  if (typeof obj.accentColor === "string" && /^#[0-9a-fA-F]{3,8}$/.test(obj.accentColor)) out.accentColor = obj.accentColor;
+  if (obj.mode === "dark" || obj.mode === "light") out.mode = obj.mode;
+  if (obj.font === "sans" || obj.font === "display" || obj.font === "mono") out.font = obj.font;
+  return out;
+}
+
+/** Assists editing via the in-editor chat: add/rewrite sections or change theme. */
+export async function chatAssistant(
+  ctx: AuthContext,
+  siteId: string,
+  input: AssistantChatInput,
+): Promise<ServiceResult<{ action: AssistantAction; pageId?: string }>> {
+  if (!ctx.userId) return fail(401, "Não autenticado.");
+  const owned = await ownerSite(siteId, ctx.userId);
+  if (!owned) return fail(404, "Site não encontrado.");
+  const message = input.message.trim().slice(0, 600);
+  if (!message) return fail(400, "Escreva o que pretende fazer.");
+  if (!isAiConfigured()) return fail(503, "A geração por IA ainda não está configurada. Contacte o apoio.");
+
+  const pages = await fetchPages(siteId);
+  const targetPage = (input.pageId && pages.find((p) => p.id === input.pageId)) || pages[0];
+  if (!targetPage) return fail(400, "O site ainda não tem páginas geradas.");
+
+  let raw: unknown;
+  try {
+    raw = await chatJson<unknown>(
+      buildAssistantPrompt({
+        businessName: owned.row.business_name,
+        brief: owned.row.brief,
+        pageTitle: targetPage.title,
+        sections: targetPage.sections,
+        message,
+      }),
+    );
+  } catch (err) {
+    await logAudit({
+      action: AUDIT.AI_SITE_GENERATION_FAILED,
+      entity: "builder_site",
+      entityId: siteId,
+      actorId: ctx.userId,
+      meta: { businessName: owned.row.business_name, mode: "chat" },
+    });
+    return fail(503, err instanceof AiError ? err.message : "O assistente falhou. Tente novamente.");
+  }
+
+  const rawObj = asRecord(raw);
+  const sections = targetPage.sections;
+
+  if (rawObj.action === "respond" || rawObj.action === undefined) {
+    const text = typeof rawObj.text === "string" ? rawObj.text.slice(0, 600) : "";
+    if (!text) return fail(400, "O assistente não percebeu o pedido. Tente reformular.");
+    return { ok: true, action: { action: "respond", text }, pageId: targetPage.id };
+  }
+
+  if (rawObj.action === "addSection") {
+    const parsed = parseSectionPayload(rawObj.section);
+    if (!parsed.ok) return fail(400, "O assistente devolveu uma secção inválida.");
+    const next = [...sections, { ...parsed.section, id: `sec-${sections.length + 1}` }];
+    const { error } = await supabaseAdmin.from("builder_pages").update({ sections: next }).eq("id", targetPage.id);
+    if (error) {
+      serverLogError("ai-builder:chat-add", error);
+      return fail(500, "Não foi possível adicionar a secção.");
+    }
+    await logAudit({
+      action: AUDIT.AI_SITE_GENERATED,
+      entity: "builder_site",
+      entityId: siteId,
+      actorId: ctx.userId,
+      meta: { businessName: owned.row.business_name, pageId: targetPage.id, mode: "chat:add" },
+    });
+    return { ok: true, action: { action: "addSection", section: { ...parsed.section, id: `sec-${sections.length + 1}` } }, pageId: targetPage.id };
+  }
+
+  if (rawObj.action === "rewrite") {
+    const index = typeof rawObj.index === "number" && Number.isInteger(rawObj.index) && rawObj.index >= 0 ? rawObj.index : -1;
+    if (index < 0 || index >= sections.length) return fail(400, "O assistente apontou para uma secção inexistente.");
+    const parsed = parseSectionPayload(rawObj.section);
+    if (!parsed.ok) return fail(400, "O assistente devolveu uma secção inválida.");
+    const next = sections.map((s, i) => (i === index ? parsed.section : s));
+    const { error } = await supabaseAdmin.from("builder_pages").update({ sections: next }).eq("id", targetPage.id);
+    if (error) {
+      serverLogError("ai-builder:chat-rewrite", error);
+      return fail(500, "Não foi possível guardar a secção reescrita.");
+    }
+    await logAudit({
+      action: AUDIT.AI_SITE_GENERATED,
+      entity: "builder_site",
+      entityId: siteId,
+      actorId: ctx.userId,
+      meta: { businessName: owned.row.business_name, pageId: targetPage.id, mode: "chat:rewrite" },
+    });
+    return { ok: true, action: { action: "rewrite", index, section: parsed.section }, pageId: targetPage.id };
+  }
+
+  if (rawObj.action === "setTheme") {
+    const themePatch = parseAssistantTheme(rawObj.theme);
+    if (Object.keys(themePatch).length === 0) {
+      return { ok: true, action: { action: "respond", text: "Não conseguí identificar que cores ou tipografia pretende alterar. Diga, por exemplo: “usa o vermelho #E31E24 como cor principal”." }, pageId: targetPage.id };
+    }
+    const theme = { ...owned.theme, ...themePatch };
+    const { error } = await supabaseAdmin.from("builder_sites").update({ theme }).eq("id", siteId);
+    if (error) {
+      serverLogError("ai-builder:chat-theme", error);
+      return fail(500, "Não foi possível atualizar o tema.");
+    }
+    await logAudit({
+      action: AUDIT.AI_SITE_GENERATED,
+      entity: "builder_site",
+      entityId: siteId,
+      actorId: ctx.userId,
+      meta: { businessName: owned.row.business_name, mode: "chat:theme" },
+    });
+    return { ok: true, action: { action: "setTheme", theme: themePatch }, pageId: targetPage.id };
+  }
+
+  return fail(400, "O assistente devolveu uma ação desconhecida. Tente reformular.");
 }
 
 export async function publishSite(ctx: AuthContext, siteId: string): Promise<ServiceResult<{ site: BuilderSite }>> {

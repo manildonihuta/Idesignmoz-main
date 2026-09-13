@@ -46,12 +46,18 @@ export async function PATCH(request: NextRequest, context: Context) {
     industry?: unknown;
     brief?: unknown;
     primaryColor?: unknown;
+    accentColor?: unknown;
+    typography?: unknown;
+    mode?: unknown;
   };
   try {
     body = await request.json();
   } catch {
     return Response.json({ ok: false, error: "JSON inválido." }, { status: 400 });
   }
+
+  const typography = body.typography === "sans" || body.typography === "display" || body.typography === "mono" ? body.typography : undefined;
+  const mode = body.mode === "dark" || body.mode === "light" ? body.mode : undefined;
 
   const result = await updateSite(ctx as AuthContext, id, {
     businessName: typeof body.businessName === "string" ? body.businessName : undefined,
@@ -60,6 +66,9 @@ export async function PATCH(request: NextRequest, context: Context) {
     industry: typeof body.industry === "string" ? body.industry : undefined,
     brief: typeof body.brief === "string" ? body.brief : undefined,
     primaryColor: typeof body.primaryColor === "string" ? body.primaryColor : undefined,
+    accentColor: typeof body.accentColor === "string" ? body.accentColor : undefined,
+    typography,
+    mode,
   });
   return sendResult(result);
 }

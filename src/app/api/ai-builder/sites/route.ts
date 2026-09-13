@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     tagline?: unknown;
     brief?: unknown;
     primaryColor?: unknown;
+    accentColor?: unknown;
+    colorPreference?: unknown;
+    style?: unknown;
+    typography?: unknown;
   };
   try {
     body = await request.json();
@@ -60,6 +64,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: false, error: "Indique o nome do negócio e descreva o que faz." }, { status: 400 });
   }
 
+  const colorPreference = body.colorPreference === "brand" || body.colorPreference === "custom" ? body.colorPreference : "auto";
+  const typography = body.typography === "sans" || body.typography === "display" || body.typography === "mono" ? body.typography : undefined;
+
   const result = await generateSite(ctx as AuthContext, {
     siteId: typeof body.siteId === "string" ? body.siteId : undefined,
     businessName,
@@ -68,6 +75,10 @@ export async function POST(request: NextRequest) {
     tagline: typeof body.tagline === "string" ? body.tagline : undefined,
     brief,
     primaryColor: typeof body.primaryColor === "string" ? body.primaryColor : undefined,
+    accentColor: typeof body.accentColor === "string" ? body.accentColor : undefined,
+    colorPreference,
+    style: typeof body.style === "string" ? body.style : undefined,
+    typography,
   });
   return sendResult(result);
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
-import { BuilderListView } from "@/components/ai-builder/builder-list-view";
+import { BuilderDashboard } from "@/components/ai-builder/builder-dashboard";
 import { getClientContext } from "@/lib/client";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function AiBuilderDashboardPage() {
 
   return (
     <DashboardShell>
-      <BuilderListView />
+      <BuilderDashboard />
     </DashboardShell>
   );
 }

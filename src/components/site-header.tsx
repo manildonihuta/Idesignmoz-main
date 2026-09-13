@@ -44,6 +44,12 @@ const track: NavItem[] = [
             href: "/websites",
           },
           {
+            label: "Modelos de Design",
+            description: "Comece de um template IA",
+            icon: LayoutTemplate,
+            href: "/templates",
+          },
+          {
             label: "Website por Encomenda",
             description: "Proposta personalizada",
             icon: Sparkles,

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { DM_Mono, Fredoka, Roboto, Roboto_Mono } from "next/font/google";
+import { DM_Mono, Fredoka, Manrope, Roboto, Roboto_Mono } from "next/font/google";
 import { JsonLd } from "@/components/json-ld";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PageTracking } from "@/components/page-tracking";
@@ -36,6 +36,13 @@ const robotoMono = Roboto_Mono({
   display: "swap",
 });
 
+const manrope = Manrope({
+  weight: "variable",
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "IDesign Moz — Create. Launch. Grow.",
@@ -65,7 +72,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="pt-MZ"
       suppressHydrationWarning
-      className={`${fredoka.variable} ${dmMono.variable} ${roboto.variable} ${robotoMono.variable}`}
+      className={`${fredoka.variable} ${dmMono.variable} ${roboto.variable} ${robotoMono.variable} ${manrope.variable}`}
     >
       <head>
         <script
