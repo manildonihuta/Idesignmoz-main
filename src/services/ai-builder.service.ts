@@ -16,6 +16,7 @@ import {
 import { logAudit, AUDIT } from "@/lib/security/audit";
 import { notifyEvent } from "@/lib/notifications";
 import { serverLogError } from "@/lib/server-log";
+import { invalidatePublicSite } from "@/lib/ai/public-site";
 
 export type BuilderSiteStatus = "draft" | "generating" | "ready" | "failed" | "published" | "archived";
 
@@ -435,6 +436,7 @@ export async function updateSite(ctx: AuthContext, siteId: string, input: Update
     serverLogError("ai-builder:update", error ?? new Error("update failed"));
     return fail(500, "Não foi possível atualizar o site.");
   }
+  invalidatePublicSite(siteId);
   return { ok: true, site: toSite(data as BuilderSiteRow) };
 }
 
@@ -464,6 +466,7 @@ export async function saveSections(
     serverLogError("ai-builder:save-sections", error);
     return fail(500, "Não foi possível guardar as secções.");
   }
+  invalidatePublicSite(siteId);
   return { ok: true, page: { id: pageId, sections: parsed.sections } };
 }
 
@@ -532,6 +535,7 @@ export async function rewriteSection(
     serverLogError("ai-builder:rewrite", error);
     return fail(500, "Não foi possível guardar a secção reescrita.");
   }
+  invalidatePublicSite(siteId);
   return { ok: true, section: rewritten };
 }
 
@@ -613,6 +617,7 @@ export async function chatAssistant(
       serverLogError("ai-builder:chat-add", error);
       return fail(500, "Não foi possível adicionar a secção.");
     }
+    invalidatePublicSite(siteId);
     await logAudit({
       action: AUDIT.AI_SITE_GENERATED,
       entity: "builder_site",
@@ -634,6 +639,7 @@ export async function chatAssistant(
       serverLogError("ai-builder:chat-rewrite", error);
       return fail(500, "Não foi possível guardar a secção reescrita.");
     }
+    invalidatePublicSite(siteId);
     await logAudit({
       action: AUDIT.AI_SITE_GENERATED,
       entity: "builder_site",
@@ -655,6 +661,7 @@ export async function chatAssistant(
       serverLogError("ai-builder:chat-theme", error);
       return fail(500, "Não foi possível atualizar o tema.");
     }
+    invalidatePublicSite(siteId);
     await logAudit({
       action: AUDIT.AI_SITE_GENERATED,
       entity: "builder_site",
@@ -684,6 +691,7 @@ export async function publishSite(ctx: AuthContext, siteId: string): Promise<Ser
     serverLogError("ai-builder:publish", error ?? new Error("update failed"));
     return fail(500, "Não foi possível publicar o site.");
   }
+  invalidatePublicSite(siteId);
 
   await logAudit({
     action: AUDIT.AI_SITE_PUBLISHED,

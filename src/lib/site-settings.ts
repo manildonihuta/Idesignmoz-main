@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cacheDelete, withRedisCache } from "@/lib/cache";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 /* --------------------------------------------------------------------- *
@@ -358,23 +359,77 @@ export async function saveSiteSettings(
 
 /* ----------------------------- Reactive cache ---------------------
  * So that live reads (currency, tax, brand) don't hammer the DB on every
- * render, we keep a short in-process TTL. A settings save invalidates it.
+ * render we keep a two-layer cache:
+ *   L1: short in-process TTL (per lambda)
+ *   L2: shared Redis TTL (across lambdas on Vercel)
+ * Sensitive sections (smtp + integrations) are NEVER stored in the shared
+ * cache — they are read straight from the DB. A settings save invalidates
+ * both layers.
  * ----------------------------------------------------------------- */
 
-let cached: { settings: SiteSettings; at: number } | null = null;
+const SENSITIVE_SETTING_KEYS: SiteSettingsKey[] = ["smtp", "integrations"];
+const PUBLIC_SETTING_KEYS: SiteSettingsKey[] = SETTING_KEYS.filter(
+  (key) => !SENSITIVE_SETTING_KEYS.includes(key),
+);
+
+const PUBLIC_CACHE_KEY = "cache:settings:public:v2";
 const TTL_MS = 30_000;
 
-export async function getSiteSettings(): Promise<SiteSettings> {
-  if (cached && Date.now() - cached.at < TTL_MS) {
-    return cached.settings;
+let cachedPublic: { settings: SiteSettings; at: number } | null = null;
+
+/** Load only the non-sensitive sections from the DB (avoids pulling secrets). */
+async function loadPublicSiteSettings(): Promise<SiteSettings> {
+  const { data } = await supabaseAdmin.from(TABLE).select("key, value").in("key", PUBLIC_SETTING_KEYS);
+  const settings: SiteSettings = structuredClone(DEFAULT_SETTINGS);
+  for (const row of data ?? []) {
+    const key = row.key as SiteSettingsKey;
+    if (key in settings) {
+      (settings as Record<string, unknown>)[key] = mergeDefaults(
+        (DEFAULT_SETTINGS as Record<string, unknown>)[key],
+        row.value,
+      );
+    }
   }
-  const settings = await loadSiteSettings();
-  cached = { settings, at: Date.now() };
   return settings;
 }
 
+/** Load a single settings section, merging stored value over defaults. */
+async function loadRawSetting<K extends SiteSettingsKey>(key: K): Promise<SiteSettings[K]> {
+  const { data } = await supabaseAdmin.from(TABLE).select("value").eq("key", key).single();
+  return mergeDefaults(
+    (DEFAULT_SETTINGS as Record<string, unknown>)[key] as SiteSettings[K],
+    data?.value,
+  );
+}
+
+/** Public (non-secret) settings, cached in-process + shared Redis. */
+export async function getPublicSiteSettings(): Promise<SiteSettings> {
+  if (cachedPublic && Date.now() - cachedPublic.at < TTL_MS) {
+    return cachedPublic.settings;
+  }
+  const settings = await withRedisCache(PUBLIC_CACHE_KEY, 30, loadPublicSiteSettings);
+  cachedPublic = { settings, at: Date.now() };
+  return settings;
+}
+
+/** Full settings. Bulk comes from the shared public cache; sensitive sections
+ *  (smtp/integrations) are always read fresh so secrets never cross Redis. */
+export async function getSiteSettings(): Promise<SiteSettings> {
+  const publicSettings = await getPublicSiteSettings();
+  const [smtp, integrations] = await Promise.all([
+    loadRawSetting("smtp"),
+    loadRawSetting("integrations"),
+  ]);
+  return {
+    ...publicSettings,
+    smtp,
+    integrations,
+  };
+}
+
 export function invalidateSiteSettingsCache(): void {
-  cached = null;
+  cachedPublic = null;
+  void cacheDelete(PUBLIC_CACHE_KEY);
 }
 
 /* ----------------------------- Company -----------------------------

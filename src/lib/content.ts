@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cacheDelete, withRedisCache } from "@/lib/cache";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { CurrencyCode } from "@/lib/currency";
 import type { Service, ServiceCategory } from "@/lib/services";
@@ -69,6 +70,7 @@ type Bundle = {
 
 let cached: { bundle: Bundle; at: number } | null = null;
 const TTL_MS = 30_000;
+const CONTENT_CACHE_KEY = "cache:content:v2";
 
 function mapCatalogRow(r: Record<string, unknown>): CatalogProductRow {
   return {
@@ -90,6 +92,7 @@ function mapCatalogRow(r: Record<string, unknown>): CatalogProductRow {
 }
 
 let catalogCache: { rows: CatalogProductRow[]; at: number } | null = null;
+const CATALOG_CACHE_KEY = "cache:catalog-products:v2";
 
 async function loadCatalogRelational(): Promise<CatalogProductRow[]> {
   const { data, error } = await supabaseAdmin
@@ -107,17 +110,19 @@ export async function getCatalogProductRows(): Promise<CatalogProductRow[]> {
   if (catalogCache && Date.now() - catalogCache.at < TTL_MS) {
     return catalogCache.rows;
   }
-  const relational = await loadCatalogRelational();
-  const rows =
-    relational.length > 0
+  const rows = await withRedisCache(CATALOG_CACHE_KEY, 30, async () => {
+    const relational = await loadCatalogRelational();
+    return relational.length > 0
       ? relational
-      : ((await getContentBundle()).catalogProducts as CatalogProductRow[]);
+      : (await getContentBundle()).catalogProducts;
+  });
   catalogCache = { rows, at: Date.now() };
   return rows;
 }
 
 export function invalidateCatalogCache(): void {
   catalogCache = null;
+  void cacheDelete(CATALOG_CACHE_KEY);
 }
 
 async function loadBundle(): Promise<Bundle> {
@@ -145,13 +150,14 @@ export async function getContentBundle(): Promise<Bundle> {
   if (cached && Date.now() - cached.at < TTL_MS) {
     return cached.bundle;
   }
-  const bundle = await loadBundle();
+  const bundle = await withRedisCache(CONTENT_CACHE_KEY, 30, loadBundle);
   cached = { bundle, at: Date.now() };
   return bundle;
 }
 
 export function invalidateContentCache(): void {
   cached = null;
+  void cacheDelete(CONTENT_CACHE_KEY);
 }
 
 /* ----------------------------- Getters ----------------------------- */
