@@ -473,6 +473,7 @@ export type ClientEmailMailbox = {
   storageUsedGb: number;
   quotaPercent: number;
   accessedAt: string | null;
+  passwordChangedAt: string | null;
   createdAt: string | null;
   forwardTo: string[];
   autoresponder: ClientEmailAutoresponder;
@@ -486,11 +487,20 @@ export type ClientEmailAlias = {
   createdAt: string | null;
 };
 
+export type ClientEmailUsageSnapshot = {
+  storageUsedGb: number;
+  storageLimitGb: number;
+  mailboxesUsed: number;
+  mailboxesLimit: number;
+  recordedAt: string | null;
+};
+
 export type ClientEmailServiceDetail = ClientEmailService & {
   providerMode: string | null;
   mailboxes: ClientEmailMailbox[];
   aliases: ClientEmailAlias[];
-  usage: { storageUsedGb: number; mailboxesUsed: number };
+  usage: ClientEmailUsageSnapshot;
+  usageHistory: ClientEmailUsageSnapshot[];
 };
 
 export async function getClientEmailService(
@@ -508,10 +518,10 @@ export async function getClientEmailService(
     .maybeSingle();
   if (!data) return null;
 
-  const [mailboxesRes, aliasesRes, usageRes] = await Promise.all([
+  const [mailboxesRes, aliasesRes, usageRes, usageHistoryRes] = await Promise.all([
     supabaseAdmin
       .from("email_mailboxes")
-      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
       .eq("email_service_id", serviceId)
       .not("status", "eq", "deleted")
       .order("created_at", { ascending: true }),
@@ -523,14 +533,27 @@ export async function getClientEmailService(
       .order("created_at", { ascending: true }),
     supabaseAdmin
       .from("email_usage")
-      .select("storage_used_gb, mailboxes_used")
+      .select("storage_used_gb, storage_limit_gb, mailboxes_used, mailboxes_limit, recorded_at")
       .eq("email_service_id", serviceId)
       .order("recorded_at", { ascending: false })
       .limit(1),
+    supabaseAdmin
+      .from("email_usage")
+      .select("storage_used_gb, storage_limit_gb, mailboxes_used, mailboxes_limit, recorded_at")
+      .eq("email_service_id", serviceId)
+      .order("recorded_at", { ascending: false })
+      .limit(30),
   ]);
 
   const meta = (data.meta ?? {}) as Record<string, unknown>;
   const usageRow = (usageRes.data?.[0] ?? {}) as Record<string, unknown>;
+  const toUsage = (u: Record<string, unknown>): ClientEmailUsageSnapshot => ({
+    storageUsedGb: Number(u.storage_used_gb ?? 0),
+    storageLimitGb: Number(u.storage_limit_gb ?? 0),
+    mailboxesUsed: Number(u.mailboxes_used ?? 0),
+    mailboxesLimit: Number(u.mailboxes_limit ?? 0),
+    recordedAt: u.recorded_at ? String(u.recorded_at) : null,
+  });
 
   const toMailbox = (m: Record<string, unknown>): ClientEmailMailbox => {
     const forwardRaw = Array.isArray(m.forward_to) ? m.forward_to : [];
@@ -545,6 +568,9 @@ export async function getClientEmailService(
       storageUsedGb: Number(m.storage_used_gb ?? 0),
       quotaPercent: Number(m.quota_percent ?? 0),
       accessedAt: m.accessed_at ? String(m.accessed_at) : null,
+      passwordChangedAt: typeof m.meta === "object" && m.meta !== null
+        ? ((m.meta as Record<string, unknown>).passwordChangedAt as string) ?? null
+        : null,
       createdAt: m.created_at ? String(m.created_at) : null,
       forwardTo: forwardRaw.map((v: unknown) => String(v)),
       autoresponder: autoresponderRaw
@@ -580,10 +606,8 @@ export async function getClientEmailService(
       status: String(a.status),
       createdAt: a.created_at ? String(a.created_at) : null,
     })),
-    usage: {
-      storageUsedGb: Number(usageRow.storage_used_gb ?? 0),
-      mailboxesUsed: Number(usageRow.mailboxes_used ?? 0),
-    },
+    usage: toUsage(usageRow),
+    usageHistory: ((usageHistoryRes.data ?? []).slice().reverse() as Record<string, unknown>[]).map(toUsage),
   };
 }
 

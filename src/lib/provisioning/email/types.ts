@@ -93,6 +93,28 @@ export type AutoresponderConfig = {
   toDate?: string;
 };
 
+/** Password reset for an existing mailbox. Password is TRANSIENT — never persisted. */
+export type MailboxPasswordResult = EmailProviderResult & {
+  meta?: Record<string, unknown>;
+};
+
+/** Per-mailbox storage snapshot returned by the provider. */
+export type MailboxUsageEntry = {
+  emailAddress: string;
+  storageUsedGb: number;
+};
+
+export type MailboxUsageRequest = {
+  domain: string;
+  serviceProviderEmailId: string;
+  providerMeta?: Record<string, unknown>;
+  mailboxes: Array<{ emailAddress: string; providerMailboxId?: string | null }>;
+};
+
+export type MailboxUsageResult = EmailProviderResult & {
+  mailboxes: MailboxUsageEntry[];
+};
+
 /**
  * A concrete email backend. Capabilities declare what the provider can REALLY
  * do — unsupported features are never advertised and stay hidden from the UI.
@@ -135,4 +157,16 @@ export interface EmailProvider {
    * Null disables it.
    */
   setAutoresponder(ref: MailboxRef, config: AutoresponderConfig | null): Promise<EmailProviderResult>;
+
+  /**
+   * Resets a mailbox password (requires `security`). The password is applied
+   * at the provider and never returned or stored by the platform.
+   */
+  setPassword(ref: MailboxRef, password: string): Promise<MailboxPasswordResult>;
+
+  /**
+   * Reads live per-mailbox storage usage (requires `storage_limits`). Returns
+   * entries only for the requested mailboxes; unknown ones are skipped.
+   */
+  refreshMailboxUsage(req: MailboxUsageRequest): Promise<MailboxUsageResult>;
 }

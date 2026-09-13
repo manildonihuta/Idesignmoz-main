@@ -119,4 +119,6 @@ export const AUDIT = {
   EMAIL_FORWARDING_UPDATED: "email.forwarding.updated",
   EMAIL_AUTORESPONDER_UPDATED: "email.autoresponder.updated",
   EMAIL_DNS_VERIFIED: "email.dns.verified",
+  EMAIL_MAILBOX_PASSWORD_RESET: "email.mailbox.password_reset",
+  EMAIL_USAGE_SYNCED: "email.usage.synced",
 } as const;

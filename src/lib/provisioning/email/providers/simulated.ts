@@ -9,9 +9,12 @@ import type {
   EmailProviderResult,
   EmailProvisionRequest,
   EmailProvisionResponse,
+  MailboxPasswordResult,
   MailboxProvisionRequest,
   MailboxProviderResult,
   MailboxRef,
+  MailboxUsageRequest,
+  MailboxUsageResult,
   EmailServiceAction,
 } from "../types";
 
@@ -25,6 +28,9 @@ const simulatedMailboxes = new Map<string, "active" | "suspended">();
 const simulatedAliases = new Map<string, string>();
 const simulatedForwarders = new Map<string, string[]>();
 const simulatedAutoresponders = new Map<string, AutoresponderConfig>();
+const simulatedQuotaGb = new Map<string, number>();
+const simulatedStorageUsedGb = new Map<string, number>();
+const simulatedPasswordChangedAt = new Map<string, string>();
 
 /** Testing hook: forget every simulated email state. */
 export function __resetSimulatedEmail(): void {
@@ -32,6 +38,27 @@ export function __resetSimulatedEmail(): void {
   simulatedAliases.clear();
   simulatedForwarders.clear();
   simulatedAutoresponders.clear();
+  simulatedQuotaGb.clear();
+  simulatedStorageUsedGb.clear();
+  simulatedPasswordChangedAt.clear();
+}
+
+function stableHash(input: string): number {
+  let h = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    h = (h * 31 + input.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+/** Deterministic, bounded "used storage" for a simulated mailbox. */
+function simulatedUsedGb(emailAddress: string, quotaGb: number): number {
+  const existing = simulatedStorageUsedGb.get(emailAddress);
+  if (existing !== undefined) return existing;
+  const fraction = (stableHash(`usage:${emailAddress}`) % 100) / 100;
+  const value = Math.round(fraction * Math.max(0, quotaGb) * 100) / 100;
+  simulatedStorageUsedGb.set(emailAddress, value);
+  return value;
 }
 
 export const simulatedEmailProvider: EmailProvider = {
@@ -81,6 +108,8 @@ export const simulatedEmailProvider: EmailProvider = {
   async createMailbox(req: MailboxProvisionRequest): Promise<MailboxProviderResult> {
     const providerMailboxId = `sim:${req.emailAddress}`;
     simulatedMailboxes.set(providerMailboxId, "active");
+    simulatedQuotaGb.set(providerMailboxId, req.quotaGb);
+    simulatedPasswordChangedAt.set(req.emailAddress, new Date().toISOString());
     return {
       ok: true,
       providerMailboxId,
@@ -106,6 +135,8 @@ export const simulatedEmailProvider: EmailProvider = {
     simulatedMailboxes.delete(`sim:${ref.emailAddress}`);
     simulatedForwarders.delete(ref.emailAddress);
     simulatedAutoresponders.delete(ref.emailAddress);
+    simulatedStorageUsedGb.delete(ref.emailAddress);
+    simulatedPasswordChangedAt.delete(ref.emailAddress);
     return { ok: true, message: `Caixa ${ref.emailAddress} removida.` };
   },
 
@@ -135,5 +166,28 @@ export const simulatedEmailProvider: EmailProvider = {
       simulatedAutoresponders.delete(ref.emailAddress);
     }
     return { ok: true, message: config ? "Respondedor automático ativado." : "Respondedor automático desativado." };
+  },
+
+  async setPassword(ref: MailboxRef, _password: string): Promise<MailboxPasswordResult> {
+    const now = new Date().toISOString();
+    simulatedPasswordChangedAt.set(ref.emailAddress, now);
+    return {
+      ok: true,
+      message: `Password da caixa ${ref.emailAddress} redefinida.`,
+      meta: { simulation: true, passwordChangedAt: now, passwordLength: _password.length, passwordEncrypted: "simulated-noop" },
+    };
+  },
+
+  async refreshMailboxUsage(req: MailboxUsageRequest): Promise<MailboxUsageResult> {
+    const mailboxes = req.mailboxes.map((m) => {
+      const key = `sim:${m.emailAddress}`;
+      const quotaGb = simulatedQuotaGb.get(key) ?? 0;
+      return { emailAddress: m.emailAddress, storageUsedGb: simulatedUsedGb(m.emailAddress, quotaGb) };
+    });
+    return {
+      ok: true,
+      mailboxes,
+      message: `Estatísticas de ${mailboxes.length} caixa(s) atualizadas.`,
+    };
   },
 };

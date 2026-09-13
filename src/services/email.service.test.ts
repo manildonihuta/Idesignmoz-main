@@ -61,6 +61,8 @@ const mocks = vi.hoisted(() => {
     deleteAlias: vi.fn(async () => ({ ok: true })),
     setForwarding: vi.fn(async () => ({ ok: true })),
     setAutoresponder: vi.fn(async () => ({ ok: true })),
+    setPassword: vi.fn(async (): Promise<MailboxPasswordResult> => ({ ok: true })),
+    refreshMailboxUsage: vi.fn(async (): Promise<MailboxUsageResult> => ({ ok: true, mailboxes: [] })),
   });
 
   const selectEmailProvider = vi.fn(() => ({
@@ -85,8 +87,11 @@ import {
   createMailbox,
   getEmailServiceDetail,
   mailboxAction,
+  resetMailboxPassword,
+  syncEmailUsage,
 } from "@/services/email.service";
 import type { AuthContext } from "@/lib/client";
+import type { MailboxPasswordResult, MailboxUsageResult } from "@/lib/provisioning/email/types";
 
 const ctx: AuthContext & { userId: string; email: string } = {
   authenticated: true,
@@ -466,5 +471,124 @@ describe("setMailboxAutoresponder", () => {
 
     const update = mocks.writes.find((w) => w.op === "update" && w.table === "email_mailboxes");
     expect(update?.row.autoresponder).toBeNull();
+  });
+});
+
+describe("resetMailboxPassword", () => {
+  it("rejects non-owned, inactive service, suspended mailbox and weak password", async () => {
+    mocks.store.email_services = [serviceRow({ customer_id: OTHER_USER })];
+    mocks.store.email_mailboxes = [mailboxRow()];
+    expect((await resetMailboxPassword(ctx, SERVICE_ID, MAILBOX_ID, { password: "longenough1" })).ok).toBe(false);
+
+    reset();
+    mocks.store.email_services = [serviceRow({ status: "provisioning" })];
+    mocks.store.email_mailboxes = [mailboxRow()];
+    expect((await resetMailboxPassword(ctx, SERVICE_ID, MAILBOX_ID, { password: "longenough1" })).ok).toBe(false);
+
+    reset();
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow({ status: "suspended" })];
+    expect((await resetMailboxPassword(ctx, SERVICE_ID, MAILBOX_ID, { password: "longenough1" })).ok).toBe(false);
+
+    reset();
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow()];
+    expect((await resetMailboxPassword(ctx, SERVICE_ID, MAILBOX_ID, { password: "short" })).ok).toBe(false);
+  });
+
+  it("resets the password at the provider and stores only the change timestamp", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow()];
+
+    const result = await resetMailboxPassword(ctx, SERVICE_ID, MAILBOX_ID, { password: "newpass123" });
+    expect(result.ok).toBe(true);
+
+    const provider = mocks.selectEmailProvider.mock.results[0].value.provider;
+    expect(provider.setPassword).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAddress: "info@site.com", domain: "site.com" }),
+      "newpass123",
+    );
+
+    const update = mocks.writes.find((w) => w.op === "update" && w.table === "email_mailboxes");
+    expect(update?.row.meta).toMatchObject({ passwordChangedAt: expect.any(String) });
+
+    const touched = mocks.writes.filter((w) => w.table === "email_mailboxes");
+    expect(touched.some((w) => "password" in (w.row as Record<string, unknown>))).toBe(false);
+
+    if (result.ok) {
+      expect(result.mailbox.passwordChangedAt).toBeTruthy();
+    }
+  });
+});
+
+describe("syncEmailUsage", () => {
+  function providerWithUsage(mailboxes: Array<{ emailAddress: string; storageUsedGb: number }>) {
+    const provider = mocks.makeProvider();
+    provider.refreshMailboxUsage.mockResolvedValue({ ok: true, mailboxes });
+    return provider;
+  }
+
+  it("rejects non-owned or inactive service", async () => {
+    mocks.store.email_services = [serviceRow({ customer_id: OTHER_USER })];
+    expect((await syncEmailUsage(ctx, SERVICE_ID)).ok).toBe(false);
+
+    reset();
+    mocks.store.email_services = [serviceRow({ status: "provisioning" })];
+    expect((await syncEmailUsage(ctx, SERVICE_ID)).ok).toBe(false);
+  });
+
+  it("updates per-mailbox usage, appends a snapshot and exposes history", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [
+      mailboxRow({ id: MAILBOX_ID, email_address: "info@site.com" }),
+      mailboxRow({
+        id: "44444444-4444-4444-8444-444444444444",
+        email_address: "vendas@site.com",
+        storage_limit_gb: 5,
+      }),
+    ];
+    mocks.store.email_usage = [];
+    mocks.selectEmailProvider.mockReturnValue({
+      provider: providerWithUsage([
+        { emailAddress: "info@site.com", storageUsedGb: 1.5 },
+        { emailAddress: "VENDAS@site.com", storageUsedGb: 2.25 },
+      ]),
+      mode: "simulated",
+    });
+
+    const result = await syncEmailUsage(ctx, SERVICE_ID);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const updates = mocks.writes.filter((w) => w.op === "update" && w.table === "email_mailboxes");
+    expect(updates).toHaveLength(2);
+    expect(updates.some((u) => u.row.storage_used_gb === 1.5 && u.row.quota_percent === 30)).toBe(true);
+    expect(updates.some((u) => u.row.storage_used_gb === 2.25 && u.row.quota_percent === 45)).toBe(true);
+
+    const snapshot = mocks.writes.find((w) => w.op === "insert" && w.table === "email_usage");
+    expect(snapshot).toBeDefined();
+    expect(snapshot?.row.storage_used_gb).toBe(3.75);
+    expect(snapshot?.row.mailboxes_used).toBe(2);
+    expect(snapshot?.row.mailboxes_limit).toBe(5);
+
+    expect(result.usage.storageUsedGb).toBe(3.75);
+    expect(result.usage.mailboxesUsed).toBe(2);
+    expect(result.usage.recordedAt).toBeTruthy();
+  });
+
+  it("propagates provider failures", async () => {
+    mocks.store.email_services = [serviceRow()];
+    mocks.store.email_mailboxes = [mailboxRow()];
+    mocks.store.email_usage = [];
+    const provider = mocks.makeProvider();
+    provider.refreshMailboxUsage.mockResolvedValue({ ok: false, message: "WHM offline", mailboxes: [] });
+    mocks.selectEmailProvider.mockReturnValue({ provider, mode: "live" });
+
+    const result = await syncEmailUsage(ctx, SERVICE_ID);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(503);
+      expect(result.error).toContain("WHM");
+    }
   });
 });

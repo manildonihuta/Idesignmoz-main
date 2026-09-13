@@ -40,9 +40,18 @@ export type EmailMailboxView = {
   storageUsedGb: number;
   quotaPercent: number;
   accessedAt: string | null;
+  passwordChangedAt: string | null;
   createdAt: string | null;
   forwardTo: string[];
   autoresponder: EmailAutoresponderView;
+};
+
+export type EmailUsageSnapshot = {
+  storageUsedGb: number;
+  storageLimitGb: number;
+  mailboxesUsed: number;
+  mailboxesLimit: number;
+  recordedAt: string | null;
 };
 
 export type EmailServiceDetail = {
@@ -58,7 +67,8 @@ export type EmailServiceDetail = {
   providerMode: string | null;
   mailboxes: EmailMailboxView[];
   aliases: EmailAliasView[];
-  usage: { storageUsedGb: number; mailboxesUsed: number };
+  usage: EmailUsageSnapshot;
+  usageHistory: EmailUsageSnapshot[];
 };
 
 export type EmailServiceRow = {
@@ -102,10 +112,10 @@ export async function getEmailServiceDetail(
     return asFailure(e);
   }
 
-  const [mailboxesRes, aliasesRes, usageRes] = await Promise.all([
+  const [mailboxesRes, aliasesRes, usageRes, usageHistoryRes] = await Promise.all([
     supabaseAdmin
       .from("email_mailboxes")
-      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+      .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
       .eq("email_service_id", service.id)
       .not("status", "eq", "deleted")
       .order("created_at", { ascending: true }),
@@ -117,13 +127,22 @@ export async function getEmailServiceDetail(
       .order("created_at", { ascending: true }),
     supabaseAdmin
       .from("email_usage")
-      .select("storage_used_gb, mailboxes_used")
+      .select("storage_used_gb, storage_limit_gb, mailboxes_used, mailboxes_limit, recorded_at")
       .eq("email_service_id", service.id)
       .order("recorded_at", { ascending: false })
       .limit(1),
+    supabaseAdmin
+      .from("email_usage")
+      .select("storage_used_gb, storage_limit_gb, mailboxes_used, mailboxes_limit, recorded_at")
+      .eq("email_service_id", service.id)
+      .order("recorded_at", { ascending: false })
+      .limit(30),
   ]);
 
   const usageRow = (usageRes.data?.[0] ?? {}) as Record<string, unknown>;
+  const usageHistory = ((usageHistoryRes.data ?? []).slice().reverse() as Record<string, unknown>[]).map(
+    (u) => usageSnapshot(u),
+  );
   return {
     ok: true,
     service: {
@@ -145,10 +164,8 @@ export async function getEmailServiceDetail(
         status: a.status,
         createdAt: a.created_at ?? null,
       })),
-      usage: {
-        storageUsedGb: Number(usageRow.storage_used_gb ?? 0),
-        mailboxesUsed: Number(usageRow.mailboxes_used ?? 0),
-      },
+      usage: usageSnapshot(usageRow),
+      usageHistory,
     },
   };
 }
@@ -235,7 +252,7 @@ export async function createMailbox(
       quota_percent: 0,
       meta: { provider: selection.provider.id, providerMode: selection.mode },
     })
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
     .single();
   if (insertErr) {
     serverLogError("service:email.mailbox.insert", insertErr);
@@ -280,7 +297,7 @@ export async function mailboxAction(
 
   const { data: mailbox, error } = await supabaseAdmin
     .from("email_mailboxes")
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, provider_mailbox_id")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, provider_mailbox_id, meta")
     .eq("id", mailboxId)
     .eq("email_service_id", service.id)
     .maybeSingle();
@@ -335,7 +352,7 @@ export async function mailboxAction(
     .from("email_mailboxes")
     .update(update)
     .eq("id", mailbox.id)
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
     .single();
   if (updErr) {
     serverLogError("service:email.mailbox.update", updErr);
@@ -635,7 +652,7 @@ export async function setMailboxForwarding(
     .from("email_mailboxes")
     .update({ forward_to: forwardTo, updated_at: new Date().toISOString() })
     .eq("id", mailbox.id)
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
     .single();
   if (updErr) {
     serverLogError("service:email.forwarding.update", updErr);
@@ -746,7 +763,7 @@ export async function setMailboxAutoresponder(
     .from("email_mailboxes")
     .update({ autoresponder: config, updated_at: new Date().toISOString() })
     .eq("id", mailbox.id)
-    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
     .single();
   if (updErr) {
     serverLogError("service:email.autoresponder.update", updErr);
@@ -772,6 +789,199 @@ export async function setMailboxAutoresponder(
   return { ok: true, mailbox: toMailboxView(updated) };
 }
 
+export async function resetMailboxPassword(
+  ctx: AuthContext,
+  serviceId: string,
+  mailboxId: string,
+  input: { password?: unknown },
+): Promise<ServiceResult<{ mailbox: EmailMailboxView }>> {
+  let service: EmailServiceRow;
+  try {
+    service = await ownedService(ctx, serviceId);
+  } catch (e) {
+    return asFailure(e);
+  }
+  if (!UUID_RE.test(mailboxId)) {
+    return fail(400, "Identificador de caixa inválido.");
+  }
+  if (service.status !== "active") {
+    return fail(409, "O serviço de email ainda não está ativo.");
+  }
+
+  const password = typeof input.password === "string" ? input.password : "";
+  if (password.length < MIN_PASSWORD) {
+    return fail(400, `A nova password deve ter pelo menos ${MIN_PASSWORD} caracteres.`);
+  }
+
+  const { data: mailbox, error } = await supabaseAdmin
+    .from("email_mailboxes")
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
+    .eq("id", mailboxId)
+    .eq("email_service_id", service.id)
+    .maybeSingle();
+  if (error || !mailbox) {
+    return fail(404, "Caixa de email não encontrada.");
+  }
+  if (mailbox.status !== "active") {
+    return fail(409, "Só é possível redefinir a password de uma caixa ativa.");
+  }
+
+  const selection = selectEmailProvider();
+  let providerResult;
+  try {
+    providerResult = await selection.provider.setPassword(mailboxRef(service, mailbox), password);
+  } catch (e) {
+    serverLogError("service:email.password.reset", e);
+    return fail(503, e instanceof Error ? e.message : "Não foi possível redefinir a password no fornecedor.");
+  }
+  if (!providerResult.ok) {
+    return fail(503, providerResult.message ?? "Não foi possível redefinir a password no fornecedor.");
+  }
+
+  const changedAt = stringMeta(providerResult.meta ?? null, "passwordChangedAt") ?? new Date().toISOString();
+  const meta = { ...((mailbox.meta ?? {}) as Record<string, unknown>), passwordChangedAt: changedAt };
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from("email_mailboxes")
+    .update({ meta, updated_at: new Date().toISOString() })
+    .eq("id", mailbox.id)
+    .select("id, email_address, display_name, status, storage_limit_gb, storage_used_gb, quota_percent, accessed_at, created_at, forward_to, autoresponder, meta")
+    .single();
+  if (updErr) {
+    serverLogError("service:email.password.update", updErr);
+    return fail(500, "Password redefinida no fornecedor, mas não foi possível guardar o registo.");
+  }
+
+  await logEmailActivity({
+    serviceId: service.id,
+    mailboxId: mailbox.id,
+    actor: ctx.userId,
+    action: "mailbox.password_reset",
+    details: { emailAddress: mailbox.email_address, changedAt },
+  });
+  await logAudit({
+    action: AUDIT.EMAIL_MAILBOX_PASSWORD_RESET,
+    entity: "email_mailbox",
+    entityId: mailbox.id,
+    actorId: ctx.userId,
+    actorEmail: ctx.email,
+    meta: { serviceId: service.id, emailAddress: mailbox.email_address },
+  });
+
+  return { ok: true, mailbox: toMailboxView(updated) };
+}
+
+export async function syncEmailUsage(
+  ctx: AuthContext,
+  serviceId: string,
+): Promise<ServiceResult<{ usage: EmailUsageSnapshot }>> {
+  let service: EmailServiceRow;
+  try {
+    service = await ownedService(ctx, serviceId);
+  } catch (e) {
+    return asFailure(e);
+  }
+  if (service.status !== "active") {
+    return fail(409, "O serviço de email ainda não está ativo.");
+  }
+
+  const { data: mailboxes, error } = await supabaseAdmin
+    .from("email_mailboxes")
+    .select("id, email_address, status, storage_limit_gb, provider_mailbox_id")
+    .eq("email_service_id", service.id)
+    .not("status", "eq", "deleted");
+  if (error) {
+    serverLogError("service:email.usage.list", error);
+    return fail(500, "Não foi possível ler as caixas do serviço.");
+  }
+
+  const active = mailboxes.filter((m) => m.status === "active");
+  const selection = selectEmailProvider();
+  let result;
+  try {
+    result = await selection.provider.refreshMailboxUsage({
+      domain: service.domain,
+      serviceProviderEmailId: String(service.provider_email_id ?? ""),
+      providerMeta: (service.meta ?? {}) as Record<string, unknown>,
+      mailboxes: active.map((m) => ({
+        emailAddress: m.email_address,
+        providerMailboxId: m.provider_mailbox_id ?? null,
+      })),
+    });
+  } catch (e) {
+    serverLogError("service:email.usage.sync", e);
+    return fail(503, e instanceof Error ? e.message : "Não foi possível ler o uso do fornecedor.");
+  }
+  if (!result.ok) {
+    return fail(503, result.message ?? "Não foi possível sincronizar o uso do fornecedor.");
+  }
+
+  const usageById = new Map<string, number>();
+  for (const entry of result.mailboxes) {
+    const row = mailboxes.find(
+      (m) => m.email_address.toLowerCase() === entry.emailAddress.toLowerCase(),
+    );
+    if (!row) continue;
+    const limitGb = Number(row.storage_limit_gb) || 0;
+    const usedGb = Math.max(0, Number(entry.storageUsedGb) || 0);
+    const clamped = limitGb > 0 ? Math.min(limitGb, usedGb) : usedGb;
+    usageById.set(row.id, clamped);
+  }
+  if (usageById.size > 0) {
+    for (const [mailboxId, usedGb] of usageById) {
+      const row = mailboxes.find((m) => m.id === mailboxId);
+      const limitGb = Number(row?.storage_limit_gb) || 0;
+      const percent = limitGb > 0 ? Math.min(100, Math.round((usedGb / limitGb) * 100)) : 0;
+      await supabaseAdmin
+        .from("email_mailboxes")
+        .update({
+          storage_used_gb: usedGb,
+          quota_percent: percent,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", mailboxId);
+    }
+  }
+
+  const storageUsedGb =
+    Math.round(
+      100 *
+        mailboxes.filter((m) => m.status !== "deleted").reduce((sum, m) => sum + (usageById.get(m.id) ?? 0), 0),
+    ) / 100;
+  const snapshot = {
+    storage_used_gb: storageUsedGb,
+    storage_limit_gb: Number(service.storage_limit_gb ?? 0),
+    mailboxes_used: active.length,
+    mailboxes_limit: Number(service.mailbox_limit ?? 0),
+    recorded_at: new Date().toISOString(),
+  };
+  const { data: inserted, error: insertErr } = await supabaseAdmin
+    .from("email_usage")
+    .insert(snapshot)
+    .select()
+    .single();
+  if (insertErr) {
+    serverLogError("service:email.usage.insert", insertErr);
+    return fail(500, "Caixas atualizadas, mas não foi possível guardar o histórico.");
+  }
+
+  await logEmailActivity({
+    serviceId: service.id,
+    actor: ctx.userId,
+    action: "usage.synced",
+    details: { storageUsedGb, mailboxesUsed: active.length },
+  });
+  await logAudit({
+    action: AUDIT.EMAIL_USAGE_SYNCED,
+    entity: "email_service",
+    entityId: service.id,
+    actorId: ctx.userId,
+    actorEmail: ctx.email,
+    meta: { storageUsedGb, mailboxesUsed: active.length },
+  });
+
+  return { ok: true, usage: usageSnapshot(inserted) };
+}
+
 function mailboxRef(
   service: EmailServiceRow,
   mailbox: { email_address: string; provider_mailbox_id?: string | null },
@@ -785,41 +995,32 @@ function mailboxRef(
 }
 
 async function refreshUsage(serviceId: string): Promise<void> {
-  const [mailboxesRes, latest] = await Promise.all([
+  const [serviceRes, mailboxesRes] = await Promise.all([
+    supabaseAdmin
+      .from("email_services")
+      .select("storage_limit_gb, mailbox_limit")
+      .eq("id", serviceId)
+      .maybeSingle(),
     supabaseAdmin
       .from("email_mailboxes")
-      .select("status")
+      .select("status, storage_used_gb")
       .eq("email_service_id", serviceId),
-    supabaseAdmin
-      .from("email_usage")
-      .select("id, storage_limit_gb, mailboxes_limit, mailboxes_used")
-      .eq("email_service_id", serviceId)
-      .order("recorded_at", { ascending: false })
-      .limit(1),
   ]);
-  const last = (latest.data?.[0] ?? {}) as Record<string, unknown>;
+  const service = (serviceRes.data ?? {}) as Record<string, unknown>;
   const rows = mailboxesRes.data ?? [];
   const active = rows.filter((m) => m.status === "active").length;
   const total = rows.filter((m) => m.status !== "deleted").length;
+  const storageUsedGb = Math.round(
+    100 * rows.filter((m) => m.status !== "deleted").reduce((sum, m) => sum + Number(m.storage_used_gb ?? 0), 0),
+  ) / 100;
 
-  if (last.id) {
-    await supabaseAdmin
-      .from("email_usage")
-      .update({
-        mailboxes_used: active,
-        mailboxes_limit: Number(last.mailboxes_limit ?? active),
-        recorded_at: new Date().toISOString(),
-      })
-      .eq("id", last.id);
-  } else {
-    await supabaseAdmin.from("email_usage").insert({
-      email_service_id: serviceId,
-      storage_used_gb: 0,
-      storage_limit_gb: Number(last.storage_limit_gb ?? 0),
-      mailboxes_used: active,
-      mailboxes_limit: total,
-    });
-  }
+  await supabaseAdmin.from("email_usage").insert({
+    email_service_id: serviceId,
+    storage_used_gb: storageUsedGb,
+    storage_limit_gb: Number(service.storage_limit_gb ?? 0),
+    mailboxes_used: active,
+    mailboxes_limit: Number(service.mailbox_limit ?? total),
+  });
 }
 
 function toMailboxView(m: Record<string, unknown>): EmailMailboxView {
@@ -835,6 +1036,7 @@ function toMailboxView(m: Record<string, unknown>): EmailMailboxView {
     storageUsedGb: Number(m.storage_used_gb ?? 0),
     quotaPercent: Number(m.quota_percent ?? 0),
     accessedAt: m.accessed_at ? String(m.accessed_at) : null,
+    passwordChangedAt: passwordChangedAt(m.meta),
     createdAt: m.created_at ? String(m.created_at) : null,
     forwardTo: forwardRaw.map((v) => String(v)),
     autoresponder: autoresponderRaw
@@ -852,6 +1054,22 @@ function toMailboxView(m: Record<string, unknown>): EmailMailboxView {
 
 function strOrNull(v: unknown): string | null {
   return typeof v === "string" && v ? v : null;
+}
+
+function passwordChangedAt(meta: unknown): string | null {
+  if (!meta || typeof meta !== "object") return null;
+  const v = (meta as Record<string, unknown>).passwordChangedAt;
+  return typeof v === "string" && v ? v : null;
+}
+
+function usageSnapshot(row: Record<string, unknown>): EmailUsageSnapshot {
+  return {
+    storageUsedGb: Number(row.storage_used_gb ?? 0),
+    storageLimitGb: Number(row.storage_limit_gb ?? 0),
+    mailboxesUsed: Number(row.mailboxes_used ?? 0),
+    mailboxesLimit: Number(row.mailboxes_limit ?? 0),
+    recordedAt: row.recorded_at ? String(row.recorded_at) : null,
+  };
 }
 
 function stringMeta(meta: Record<string, unknown> | null, key: string): string | null {

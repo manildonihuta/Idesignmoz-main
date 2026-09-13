@@ -57,6 +57,7 @@ function MailboxFeaturePanel({
   const [arSubject, setArSubject] = useState(mailbox.autoresponder?.subject ?? "");
   const [arBody, setArBody] = useState(mailbox.autoresponder?.body ?? "");
   const [arFromName, setArFromName] = useState(mailbox.autoresponder?.fromName ?? "");
+  const [newPassword, setNewPassword] = useState("");
 
   const saveForwarding = async () => {
     setError(null);
@@ -105,6 +106,29 @@ function MailboxFeaturePanel({
         return;
       }
       setNotice("Respondedor automático guardado.");
+      await onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetPassword = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/email/services/${serviceId}/mailboxes/${mailbox.id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Falha ao redefinir a password.");
+        return;
+      }
+      setNewPassword("");
+      setNotice("Password redefinida com sucesso.");
       await onRefresh();
     } finally {
       setBusy(false);
@@ -181,6 +205,149 @@ function MailboxFeaturePanel({
             <button className="outline-button px-3 py-1 text-xs" disabled={busy} onClick={saveAutoresponder}>
               Guardar respondedor
             </button>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Segurança</h3>
+            <p className="text-xs text-muted">
+              A password é aplicada no fornecedor e nunca é guardada nos nossos sistemas.
+              {mailbox.passwordChangedAt ? ` Última alteração: ${fmt(mailbox.passwordChangedAt)}.` : ""}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={8}
+                className="flex-1 rounded-md border border-line bg-panel px-3 py-2 text-sm"
+                placeholder="Nova password (mín. 8 caracteres)"
+              />
+              <button
+                className="outline-button px-3 py-1 text-xs"
+                disabled={busy || newPassword.length < 8}
+                onClick={resetPassword}
+              >
+                Redefinir password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtDateTime(date: string | null): string {
+  if (!date) return "—";
+  try {
+    return new Date(date).toLocaleString("pt-PT", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return date;
+  }
+}
+
+function UsagePanel({
+  service,
+  onRefresh,
+}: {
+  service: ClientEmailServiceDetail;
+  onRefresh: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const sync = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/email/services/${service.id}/usage/sync`, { method: "POST" });
+      const data = (await res.json()) as { ok?: boolean; error?: string; usage?: { recordedAt?: string } };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Falha ao sincronizar o uso.");
+        return;
+      }
+      setNotice("Uso sincronizado com o fornecedor.");
+      await onRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const { usage } = service;
+  const pct = usage.storageLimitGb > 0 ? Math.min(100, Math.round((usage.storageUsedGb / usage.storageLimitGb) * 100)) : 0;
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display-2 text-lg font-semibold">Uso &amp; segurança</h2>
+          <p className="text-sm text-muted">
+            Última sincronização: {fmtDateTime(usage.recordedAt)} · {usage.storageUsedGb} GB utilizados de{" "}
+            {usage.storageLimitGb} GB
+          </p>
+        </div>
+        <button className="outline-button px-3 py-1 text-sm" disabled={busy} onClick={sync}>
+          {busy ? "A sincronizar…" : "Sincronizar uso"}
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-line bg-panel p-3">
+          <div className="text-xs text-muted">Armazenamento</div>
+          <div className="mt-1 flex items-center gap-2 text-sm">
+            <span className="font-semibold">
+              {usage.storageUsedGb} / {usage.storageLimitGb} GB
+            </span>
+            <span className="text-xs text-muted">({pct}%)</span>
+          </div>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-line">
+            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        <div className="rounded-lg border border-line bg-panel p-3">
+          <div className="text-xs text-muted">Caixas</div>
+          <div className="mt-1 text-sm font-semibold">
+            {usage.mailboxesUsed} / {usage.mailboxesLimit}
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</div>}
+      {notice && <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700">{notice}</div>}
+
+      {service.usageHistory.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold">Histórico</h3>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs text-muted">
+                  <th className="py-1 pr-3 font-medium">Data</th>
+                  <th className="py-1 pr-3 font-medium">Armazenamento</th>
+                  <th className="py-1 font-medium">Caixas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {service.usageHistory.map((s, i) => (
+                  <tr key={`${s.recordedAt}-${i}`} className="border-b border-line/50 last:border-0">
+                    <td className="py-1.5 pr-3 text-muted">{fmtDateTime(s.recordedAt)}</td>
+                    <td className="py-1.5 pr-3">
+                      {s.storageUsedGb} / {s.storageLimitGb} GB
+                    </td>
+                    <td className="py-1.5">
+                      {s.mailboxesUsed} / {s.mailboxesLimit}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -479,14 +646,22 @@ export function EmailServiceView({ service: initial }: { service: ClientEmailSer
                     Remover
                   </button>
                 </div>
-                {m.status === "active" && (
-                  <MailboxFeaturePanel mailbox={m} serviceId={service.id} onRefresh={refresh} />
-                )}
-              </div>
-            );
-          })
+{m.status === "active" && (
+                    <MailboxFeaturePanel mailbox={m} serviceId={service.id} onRefresh={refresh} />
+                  )}
+                  {(m.accessedAt || m.passwordChangedAt) && (
+                    <div className="mt-2 text-xs text-muted">
+                      {m.accessedAt ? `Último acesso ${fmt(m.accessedAt)} · ` : ""}
+                      {m.passwordChangedAt ? `password alterada ${fmt(m.passwordChangedAt)}` : ""}
+                    </div>
+                  )}
+                </div>
+              );
+            })
         )}
       </div>
+
+      <UsagePanel service={service} onRefresh={refresh} />
 
       <div className="space-y-3">
         <h2 className="font-display-2 text-lg font-semibold">

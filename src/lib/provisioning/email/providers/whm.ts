@@ -10,9 +10,12 @@ import type {
   EmailProvisionRequest,
   EmailProvisionResponse,
   EmailServiceAction,
+  MailboxPasswordResult,
   MailboxProvisionRequest,
   MailboxProviderResult,
   MailboxRef,
+  MailboxUsageRequest,
+  MailboxUsageResult,
 } from "../types";
 
 /** Host + API token used for both WHM json-api and cPanel UAPI calls. */
@@ -42,7 +45,14 @@ export const whmEmailProvider: EmailProvider = {
   get configured() {
     return Boolean(process.env.WHM_HOST && process.env.WHM_API_TOKEN);
   },
-  capabilities: ["mailboxes", "aliases", "forwarding", "autoresponder"] as const,
+  capabilities: [
+    "mailboxes",
+    "aliases",
+    "forwarding",
+    "autoresponder",
+    "security",
+    "storage_limits",
+  ] as const,
 
   async createService(req: EmailProvisionRequest): Promise<EmailProvisionResponse> {
     const creds = whmCreds();
@@ -258,6 +268,58 @@ export const whmEmailProvider: EmailProvider = {
       return { ok: false, message: String(result.errors[0]) };
     }
     return { ok: true, message: "Respondedor automático ativado." };
+  },
+
+  async setPassword(ref: MailboxRef, password: string): Promise<MailboxPasswordResult> {
+    const [localPart, domain] = splitAddress(ref.emailAddress);
+    const result = await cpanelCall<{ errors?: unknown[] }>("Email", "passwd_pop", {
+      cpanelUser: String(ref.providerMeta?.cpanelUser ?? ""),
+      email: localPart,
+      domain,
+      password,
+    });
+    if (!result.ok) return result;
+    if (result.errors?.length) {
+      return { ok: false, message: String(result.errors[0]) };
+    }
+    return {
+      ok: true,
+      message: `Password da caixa ${ref.emailAddress} redefinida.`,
+      meta: { passwordChangedAt: new Date().toISOString() },
+    };
+  },
+
+  async refreshMailboxUsage(req: MailboxUsageRequest): Promise<MailboxUsageResult> {
+    const result = await cpanelCall<{
+      data?: Array<{ email?: string; _diskquota?: string; _diskquota_used?: string }>;
+      errors?: unknown[];
+    }>("Email", "list_pops", {
+      cpanelUser: String(req.providerMeta?.cpanelUser ?? ""),
+      domain: req.domain,
+    });
+    if (!result.ok) return { ok: false, message: result.message, mailboxes: [] };
+    if (result.errors?.length) {
+      return { ok: false, message: String(result.errors[0]), mailboxes: [] };
+    }
+
+    const wanted = new Map(req.mailboxes.map((m) => [m.emailAddress.toLowerCase(), m.emailAddress]));
+    const mailboxes = (result.data ?? [])
+      .filter((row) => typeof row.email === "string" && wanted.has(row.email.toLowerCase()))
+      .map((row) => {
+        const emailAddress = wanted.get(String(row.email!).toLowerCase()) ?? String(row.email!);
+        const usedBytes = Number(row._diskquota_used ?? "0");
+        const quotaMb = Number(row._diskquota ?? "0");
+        const quotaGb = quotaMb > 0 ? quotaMb / 1024 : 10;
+        const storageUsedGb =
+          quotaGb > 0 ? Math.min(quotaGb, Math.round((usedBytes / (1024 ** 3)) * 100) / 100) : 0;
+        return { emailAddress, storageUsedGb };
+      });
+
+    return {
+      ok: true,
+      mailboxes,
+      message: `Estatísticas de ${mailboxes.length} caixa(s) lidas do cPanel.`,
+    };
   },
 };
 
