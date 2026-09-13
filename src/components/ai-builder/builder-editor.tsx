@@ -10,7 +10,7 @@ import {
 } from "@/lib/ai/builder-schema";
 import type { BuilderPage, BuilderSite } from "@/services/ai-builder.service";
 import { SitePage } from "./site-renderer";
-import { AssistantPanel } from "./assistant-panel";
+import { Assistant } from "./assistant";
 
 type FieldDef = { key: string; label: string; area?: boolean };
 type EditableDef = { fields: FieldDef[]; itemsKey?: string; itemFields?: FieldDef[] };
@@ -719,7 +719,7 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
             </div>
           )}
 
-          <AssistantPanel
+          <Assistant
             siteId={site.id}
             pageId={page?.id}
             onAddSection={handleAddFromAssistant}

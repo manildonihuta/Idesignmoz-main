@@ -271,6 +271,8 @@ html[data-theme="light"] {
 @keyframes ai-blink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
 @keyframes ai-shift { 0% { background-position:0% 50%; } 50% { background-position:100% 50%; } 100% { background-position:0% 50%; } }
 .ai-gradient-anim { background-size:220% 220%; animation:ai-shift 7s ease infinite; }
-@media (prefers-reduced-motion:reduce) { .ai-gradient-anim,.ai-status-dot.generating,.ai-status-dot.ready { animation:none; } }
+@keyframes ai-logo-shift { 0%,100% { transform:rotate(0deg) scale(1); } 50% { transform:rotate(180deg) scale(1.08); } }
+.animate-gradient { animation:ai-logo-shift 8s linear infinite; transform-origin:center; transform-box:fill-box; }
+@media (prefers-reduced-motion:reduce) { .ai-gradient-anim,.ai-status-dot.generating,.ai-status-dot.ready,.animate-gradient { animation:none; } }
 
 .dash-nav-label { font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#56594f;padding:16px 12px 4px; }html[data-theme="light"] .dash-nav-label { color:#8a8d82; }@media (max-width:900px){ .dash-nav-label { display:none; }.dash-nav>div { display:flex; align-items:center; } }
