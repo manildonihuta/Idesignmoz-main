@@ -5,6 +5,7 @@ import { serverLogError } from "@/lib/server-log";
 import { logAudit, AUDIT } from "@/lib/security/audit";
 import { selectEmailProvider } from "@/lib/provisioning/email/registry";
 import { logEmailActivity } from "@/lib/provisioning/email/activity";
+import { evaluateEmailQuotaAlerts } from "./email-quota-alerts.service";
 import { fail, type ServiceResult } from "./result";
 import type { AuthContext } from "@/lib/client";
 
@@ -977,6 +978,15 @@ export async function syncEmailUsage(
     actorId: ctx.userId,
     actorEmail: ctx.email,
     meta: { storageUsedGb, mailboxesUsed: active.length },
+  });
+
+  await evaluateEmailQuotaAlerts({
+    serviceId: service.id,
+    customerId: service.customer_id ?? null,
+    domain: service.domain,
+    meta: service.meta,
+    storageLimitGb: Number(service.storage_limit_gb ?? 0),
+    storageUsedGb,
   });
 
   return { ok: true, usage: usageSnapshot(inserted) };

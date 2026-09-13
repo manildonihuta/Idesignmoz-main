@@ -253,6 +253,32 @@ export const EVENTS = {
       link: ADMIN_LINK,
     }),
   },
+  "email.quota.80": {
+    key: "email.quota.80",
+    label: "Armazenamento de email — 80%",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.quota.80",
+      title: `Armazenamento de email 80% — ${escapeHtml(p.domain)}`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} atingiu 80% do armazenamento (${
+        escapeHtml(p.storageUsedGb)
+      } de ${escapeHtml(p.storageLimitGb)} GB). Considera apagar arquivos antigos ou reforçar o plano.`,
+      link: ADMIN_LINK,
+    }),
+  },
+  "email.quota.95": {
+    key: "email.quota.95",
+    label: "Armazenamento de email — 95%",
+    roles: ["super_admin", "admin", "manager", "developer", "support"],
+    render: (p) => ({
+      key: "email.quota.95",
+      title: `Armazenamento de email quase cheio — ${escapeHtml(p.domain)}`,
+      body: `O serviço de email de ${escapeHtml(p.domain)} atingiu 95% do armazenamento (${
+        escapeHtml(p.storageUsedGb)
+      } de ${escapeHtml(p.storageLimitGb)} GB). Acima deste limite as caixas podem deixar de aceitar email.`,
+      link: ADMIN_LINK,
+    }),
+  },
   "subscription.created": {
     key: "subscription.created",
     label: "Subscrição criada",

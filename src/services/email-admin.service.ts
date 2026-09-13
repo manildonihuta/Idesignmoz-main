@@ -5,6 +5,7 @@ import { serverLogError } from "@/lib/server-log";
 import { logAudit, AUDIT } from "@/lib/security/audit";
 import { selectEmailProvider } from "@/lib/provisioning/email/registry";
 import { logEmailActivity } from "@/lib/provisioning/email/activity";
+import { evaluateEmailQuotaAlerts } from "./email-quota-alerts.service";
 import { fail, type ServiceResult } from "./result";
 
 export type AdminActor = { userId?: string; email?: string; role?: string };
@@ -370,6 +371,15 @@ export async function adminSyncEmailUsage(
     actorRole: actor.role,
     ip,
     meta: { storageUsedGb, mailboxesUsed: active.length, admin: true },
+  });
+
+  await evaluateEmailQuotaAlerts({
+    serviceId: service.id,
+    customerId: service.customer_id ?? null,
+    domain: String(service.domain ?? ""),
+    meta: (service.meta ?? {}) as Record<string, unknown>,
+    storageLimitGb: Number(service.storage_limit_gb ?? 0),
+    storageUsedGb,
   });
 
   return {
