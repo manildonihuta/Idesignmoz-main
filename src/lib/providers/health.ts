@@ -8,6 +8,7 @@ import { PROVIDER_HEALTH_LABEL } from "./types";
 import { classifyProviderError } from "./errors";
 import { logProviderActivity } from "./activity";
 import { resolveBuiltinProvider, resolveHostingAdapter, resolveRegistrarAdapter } from "./registry";
+import { cloudflareConfigured, cloudflareVerifyToken } from "@/lib/dns/providers/cloudflare";
 
 export type HealthProbeResult = {
   status: ProviderHealthState;
@@ -90,6 +91,25 @@ async function probeBuiltin(slug: string, type: string): Promise<HealthProbeResu
           responseTimeMs: Math.round(performance.now() - started),
           errorClass: error ? "provider_unavailable" : undefined,
           errorMessage: error ? "Falha ao ler o registo DNS." : `${data?.length ?? 0} zona(s) acessível(eis).`,
+        };
+      }
+
+      case "dns-cloudflare": {
+        // Real probe: Cloudflare /user/tokens/verify with the bearer token.
+        if (!cloudflareConfigured()) {
+          return {
+            status: "unavailable",
+            responseTimeMs: Math.round(performance.now() - started),
+            errorClass: "authentication",
+            errorMessage: "Credenciais Cloudflare ausentes.",
+          };
+        }
+        const ok = await cloudflareVerifyToken();
+        return {
+          status: ok ? "healthy" : "unavailable",
+          responseTimeMs: Math.round(performance.now() - started),
+          errorClass: ok ? undefined : "authentication",
+          errorMessage: ok ? "Token Cloudflare válido; API acessível." : "Token Cloudflare inválido ou sem permissão.",
         };
       }
 

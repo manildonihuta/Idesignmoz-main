@@ -5,7 +5,6 @@ vi.mock("@/lib/supabase-admin", () => ({ supabaseAdmin: {} }));
 
 import {
   ProviderAuthenticationError,
-  ProviderRateLimitError,
   ProviderTimeoutError,
   classifyProviderError,
   computeBackoffMs,

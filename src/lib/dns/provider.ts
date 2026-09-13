@@ -2,148 +2,26 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import type {
+  DnsNameserversInput,
   DnsRecord,
   DnsRecordInput,
-  DnsNameserversInput,
   DnsZone,
+  DNSProvider,
   PropagationCheck,
 } from "@/lib/dns/types";
+import {
+  DEFAULT_NAMESERVERS,
+  doPropagationChecks,
+  mapRecordRow,
+  mapZoneRow,
+  type RecordRow,
+  type ZoneRow,
+} from "@/lib/dns/mappers";
+import { cloudflareConfigured, createCloudflareDnsProvider } from "@/lib/dns/providers/cloudflare";
 
-const DEFAULT_NAMESERVERS: Record<string, string> = {
-  ns1: "ns1.idesignmoz.com",
-  ns2: "ns2.idesignmoz.com",
-};
-
-export type ZoneRow = {
-  id: string;
-  full_domain: string;
-  user_id: string | null;
-  provider: string;
-  provider_zone_id: string | null;
-  status: string;
-  nameservers: Record<string, string> | null;
-  dnssec: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type RecordRow = {
-  id: string;
-  zone_id: string;
-  type: string;
-  name: string;
-  value: string;
-  ttl: number;
-  priority: number | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export function mapZoneRow(row: ZoneRow): DnsZone {
-  return {
-    id: row.id,
-    fullDomain: row.full_domain,
-    userId: row.user_id,
-    provider: row.provider,
-    providerZoneId: row.provider_zone_id,
-    status: row.status as DnsZone["status"],
-    nameservers: { ...DEFAULT_NAMESERVERS, ...(row.nameservers ?? {}) },
-    dnssec: row.dnssec as DnsZone["dnssec"],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-export function mapRecordRow(row: RecordRow): DnsRecord {
-  return {
-    id: row.id,
-    zoneId: row.zone_id,
-    type: row.type as DnsRecord["type"],
-    name: row.name,
-    value: row.value,
-    ttl: row.ttl,
-    priority: row.priority,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function normalizeComparison(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/^\/+|\/+$/g, "")
-    .replace(/\.$/, "")
-    .replace(/^"(.*)"$/, "$1");
-}
-
-async function queryDoH(name: string, type: string): Promise<string[]> {
-  try {
-    const url = new URL("https://dns.google/resolve");
-    url.searchParams.set("name", name);
-    url.searchParams.set("type", type);
-    url.searchParams.set("t", String(Date.now()));
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(url.toString(), {
-      headers: { Accept: "application/dns-json" },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    clearTimeout(timer);
-    if (!res.ok) return [];
-    const json = (await res.json()) as { Answer?: Array<{ type?: number; data?: string | string[] }> };
-    if (!Array.isArray(json.Answer)) return [];
-    const answers: string[] = [];
-    for (const answer of json.Answer) {
-      if (answer === null || typeof answer !== "object") continue;
-      const data = answer.data;
-      if (typeof data === "string") answers.push(data);
-      else if (Array.isArray(data)) answers.push(...data.filter((d): d is string => typeof d === "string"));
-    }
-    return answers;
-  } catch {
-    return [];
-  }
-}
-
-function fqName(fullDomain: string, name: string): string {
-  if (name === "@" || name === "*") return fullDomain;
-  if (name.toLowerCase().endsWith(`.${fullDomain.toLowerCase()}`)) return name;
-  return `${name}.${fullDomain}`;
-}
-
-export function recordFqName(zone: Pick<DnsZone, "fullDomain">, record: Pick<DnsRecord, "name">): string {
-  return fqName(zone.fullDomain, record.name);
-}
-
-/**
- * DNSProvider — abstraction over a real DNS backend.
- *
- * The platform ships with a `local` provider that stores records in the
- * IDesign Moz database and reports truthful "pending / manual setup /
- * provider not connected" states — it never fakes an active provider.
- *
- * Future providers (Cloudflare, registrar API, cPanel/WHM, Plesk) implement
- * the same interface and are selected by `getDnsProvider()` based on env
- * configuration, so nothing upstream has to change.
- */
-export interface DNSProvider {
-  readonly key: string;
-  readonly label: string;
-  getZone(fullDomain: string): Promise<DnsZone | null>;
-  ensureZone(fullDomain: string, userId: string | null): Promise<DnsZone>;
-  deleteZone(zoneId: string): Promise<void>;
-  listRecords(zoneId: string): Promise<DnsRecord[]>;
-  createRecord(zoneId: string, input: DnsRecordInput): Promise<DnsRecord>;
-  updateRecord(recordId: string, input: DnsRecordInput): Promise<DnsRecord>;
-  deleteRecord(recordId: string): Promise<void>;
-  getNameservers(zoneId: string): Promise<Record<string, string>>;
-  updateNameservers(zoneId: string, nameservers: DnsNameserversInput): Promise<void>;
-  setDnssec(zoneId: string, enabled: boolean): Promise<{ dnssec: DnsZone["dnssec"] }>;
-  checkPropagation(zone: DnsZone, records: DnsRecord[]): Promise<PropagationCheck[]>;
-  syncZone(zoneId: string): Promise<{ status: DnsZone["status"] }>;
-}
+export { DEFAULT_NAMESERVERS, mapZoneRow, mapRecordRow, recordFqName } from "./mappers";
+export type { ZoneRow, RecordRow } from "./mappers";
+export type { DNSProvider } from "./types";
 
 /**
  * Local provider — records live in the platform database. No registrar/zone
@@ -277,34 +155,7 @@ class LocalDnsProvider implements DNSProvider {
   }
 
   async checkPropagation(zone: DnsZone, records: DnsRecord[]): Promise<PropagationCheck[]> {
-    const seen = new Map<string, { name: string; type: string; query: string; expected: string[] }>();
-    for (const record of records) {
-      const query = fqName(zone.fullDomain, record.name);
-      const key = `${query}|${record.type}`;
-      const entry = seen.get(key) ?? { name: record.name, type: record.type, query, expected: [] };
-      entry.expected.push(record.value);
-      seen.set(key, entry);
-    }
-
-    const checks: PropagationCheck[] = [];
-    const checkedAt = new Date().toISOString();
-    for (const entry of seen.values()) {
-      const answers = await queryDoH(entry.query, entry.type);
-      const normalized = answers.map(normalizeComparison);
-      const matched = entry.expected.some((expected) => {
-        const target = normalizeComparison(expected);
-        return normalized.some((answer) => answer === target || answer.includes(target));
-      });
-      checks.push({
-        name: entry.name,
-        type: entry.type,
-        query: entry.query,
-        answers,
-        matched,
-        checkedAt,
-      });
-    }
-    return checks;
+    return doPropagationChecks(zone, records);
   }
 
   async syncZone(zoneId: string): Promise<{ status: DnsZone["status"] }> {
@@ -324,11 +175,19 @@ class LocalDnsProvider implements DNSProvider {
 
 let localProvider: LocalDnsProvider | null = null;
 
+/**
+ * Resolves the DNS backend for a zone (or the platform default when none is
+ * given). Cloudflare-backed zones always use the Cloudflare adapter; new
+ * zones default to Cloudflare once CLOUDFLARE_API_TOKEN is configured. Without
+ * a Cloudflare token every zone uses the internal registry and reports an
+ * honest pending state.
+ */
 export function getDnsProvider(zone?: Pick<DnsZone, "provider"> | null): DNSProvider {
-  if (zone && zone.provider !== "local") {
-    // External providers (Cloudflare, registrars, cPanel/WHM, Plesk) are wired
-    // here once credentials are configured; until then every zone uses the
-    // internal registry and reports an honest pending state.
+  if (zone && zone.provider === "cloudflare") {
+    return createCloudflareDnsProvider();
+  }
+  if (cloudflareConfigured()) {
+    return createCloudflareDnsProvider();
   }
   localProvider = localProvider ?? new LocalDnsProvider();
   return localProvider;

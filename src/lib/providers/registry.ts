@@ -6,6 +6,7 @@ import type { HostingProvider } from "@/lib/provisioning/hosting/types";
 import { REGISTRARS, selectRegistrar } from "@/lib/provisioning/domain/registry";
 import type { DomainRegistrar } from "@/lib/provisioning/domain/types";
 import { getDnsProvider } from "@/lib/dns/provider";
+import { cloudflareConfigured } from "@/lib/dns/providers/cloudflare";
 import { LOCAL_DNS_CAPABILITIES, capabilitiesFromHostingProvider, capabilitiesFromRegistrar } from "./capabilities";
 import type { InfraCapability, ProviderCategory } from "./types";
 
@@ -99,6 +100,22 @@ export const BUILTIN_PROVIDERS: BuiltinProviderDef[] = [
     },
     get endpoint() {
       return null;
+    },
+  },
+  {
+    slug: "dns-cloudflare",
+    name: "Cloudflare DNS",
+    category: "dns",
+    adapter: "CloudflareDnsProvider",
+    // Cloudflare emits its own nameservers and does not let users set them —
+    // the capability stays truthful (absent) instead of advertised.
+    capabilities: ["dns.zones", "dns.records", "dns.dnssec", "dns.propagation"] as InfraCapability[],
+    isBuiltin: true,
+    get configured() {
+      return cloudflareConfigured();
+    },
+    get endpoint() {
+      return "https://api.cloudflare.com/client/v4";
     },
   },
   registrarDef("domain-namecheap", "Namecheap", "namecheapRegistrar", REGISTRARS[0], "domain"),

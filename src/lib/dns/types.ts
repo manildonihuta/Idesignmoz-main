@@ -33,6 +33,34 @@ export type DnsRecord = {
   updatedAt: string;
 };
 
+/**
+ * DNSProvider — abstraction over a real DNS backend.
+ *
+ * The platform ships with a `local` provider that stores records in the
+ * IDesign Moz database and reports truthful "pending / manual setup /
+ * provider not connected" states — it never fakes an active provider.
+ *
+ * Future providers (Cloudflare, registrar API, cPanel/WHM, Plesk) implement
+ * the same interface and are selected by `getDnsProvider()` based on env
+ * configuration, so nothing upstream has to change.
+ */
+export interface DNSProvider {
+  readonly key: string;
+  readonly label: string;
+  getZone(fullDomain: string): Promise<DnsZone | null>;
+  ensureZone(fullDomain: string, userId: string | null): Promise<DnsZone>;
+  deleteZone(zoneId: string): Promise<void>;
+  listRecords(zoneId: string): Promise<DnsRecord[]>;
+  createRecord(zoneId: string, input: DnsRecordInput): Promise<DnsRecord>;
+  updateRecord(recordId: string, input: DnsRecordInput): Promise<DnsRecord>;
+  deleteRecord(recordId: string): Promise<void>;
+  getNameservers(zoneId: string): Promise<Record<string, string>>;
+  updateNameservers(zoneId: string, nameservers: DnsNameserversInput): Promise<void>;
+  setDnssec(zoneId: string, enabled: boolean): Promise<{ dnssec: DnsZone["dnssec"] }>;
+  checkPropagation(zone: DnsZone, records: DnsRecord[]): Promise<PropagationCheck[]>;
+  syncZone(zoneId: string): Promise<{ status: DnsZone["status"] }>;
+}
+
 export type DnsActivity = {
   id: string;
   zoneId: string;
