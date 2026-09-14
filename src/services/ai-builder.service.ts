@@ -5,6 +5,7 @@ import type { AuthContext } from "@/lib/client";
 import { fail, type ServiceResult } from "@/services/result";
 import { isAiConfigured, chatJson, AiError } from "@/lib/ai/provider";
 import { buildSitePrompt, buildRewriteSectionPrompt, buildAssistantPrompt } from "@/lib/ai/builder-prompt";
+import { getAiTemplate } from "@/lib/ai-templates";
 import {
   parseSitePayload,
   parseSectionPayload,
@@ -188,6 +189,7 @@ export async function getSite(ctx: AuthContext, siteId: string): Promise<Service
 
 export type GenerateSiteInput = {
   siteId?: string;
+  templateId?: string;
   businessName: string;
   industry?: string;
   domain?: string;
@@ -282,6 +284,7 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
 
   let payload: SitePayload;
   try {
+    const aiTemplate = input.templateId ? getAiTemplate(input.templateId) : null;
     const raw = await chatJson<unknown>(
       buildSitePrompt({
         businessName,
@@ -294,6 +297,7 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
         colorPreference,
         style,
         typography,
+        images: aiTemplate?.images,
       }),
     );
     const parsed = parseSitePayload(raw);

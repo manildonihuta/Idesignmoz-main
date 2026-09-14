@@ -33,7 +33,7 @@ export function TemplatesGallery() {
             className="ai-font flex flex-col overflow-hidden rounded-2xl border border-[var(--ai-border)] bg-[var(--ai-surface)] transition-colors hover:border-[var(--ai-border-strong)]"
           >
             <div className="h-44 overflow-hidden">
-              <TemplatePreview name={template.name} colors={template.colors} />
+              <TemplatePreview name={template.name} colors={template.colors} image={template.images.hero} />
             </div>
 
             <div className="flex flex-1 flex-col gap-3 p-6">

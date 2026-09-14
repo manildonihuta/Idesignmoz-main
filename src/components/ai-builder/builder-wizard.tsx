@@ -132,6 +132,7 @@ export function BuilderWizard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          templateId: initialTemplate?.id,
           businessName: form.businessName,
           industry: form.industry || undefined,
           domain: form.domain.trim() || undefined,

@@ -1,5 +1,11 @@
 /* AI Builder — template catalogue (static data, no DB yet). */
 
+export type AiTemplateImages = {
+  hero?: string;
+  about?: string;
+  gallery: string[];
+};
+
 export type AiTemplate = {
   id: string;
   name: string;
@@ -10,6 +16,7 @@ export type AiTemplate = {
   colors: { from: string; to: string; accent: string };
   pages: number;
   brief: string;
+  images: AiTemplateImages;
 };
 
 export const AI_TEMPLATES: AiTemplate[] = [
@@ -25,6 +32,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 4,
     brief:
       "Restaurante de cozinha moçambicana com ambiente familiar. Destacar o menu, especialidades, reservas, horários e localização.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
   {
     id: "hotel-boutique",
@@ -38,6 +54,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 4,
     brief:
       "Hotel boutique com quartos virados para a praia. Apresentar quartos, experiências, preços e formulário de reserva.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
   {
     id: "portfolio-criativo",
@@ -51,6 +76,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 3,
     brief:
       "Portfólio de designer criativo. Apresentar projetos seleccionados, serviços e um formulário de contacto claro.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1541462608143-67571c6738dd?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1550439062-609e1531270e?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1547891654-e66ed7ebb968?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1558655146-9f40138edfeb?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
   {
     id: "agencia",
@@ -64,6 +98,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 4,
     brief:
       "Consultoria de negócios para PME. Destacar serviços, vantagens, casos de sucesso e contacto para reunião.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
   {
     id: "loja-online",
@@ -77,6 +120,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 5,
     brief:
       "Loja online de artesanato moçambicano. Mostrar catálogo, categorias e uma página dedicada a vender com entrega nacional.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1607082349566-187342175e2f?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
   {
     id: "imobiliaria",
@@ -90,6 +142,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 4,
     brief:
       "Imobiliária em Maputo para venda e arrendamento. Destacar imóveis disponíveis, zonas e contactos para visitas.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
   {
     id: "salao-beleza",
@@ -103,6 +164,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 3,
     brief:
       "Salão de beleza e estética. Destacar serviços, preços, marcas utilizadas e marcação online.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
   {
     id: "landing-app",
@@ -116,6 +186,15 @@ export const AI_TEMPLATES: AiTemplate[] = [
     pages: 2,
     brief:
       "Landing page de lançamento de uma aplicação. Proposta de valor clara, vantagens, prova social e chamada à ação.",
+    images: {
+      hero: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1400&q=80",
+      about: "https://images.unsplash.com/photo-1551650975-87deedd944c3?auto=format&fit=crop&w=1200&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80",
+      ],
+    },
   },
 ];
 

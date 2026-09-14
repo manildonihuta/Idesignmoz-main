@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
 
   let body: {
     siteId?: unknown;
+    templateId?: unknown;
     businessName?: unknown;
     industry?: unknown;
     domain?: unknown;
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
 
   const result = await generateSite(ctx as AuthContext, {
     siteId: typeof body.siteId === "string" ? body.siteId : undefined,
+    templateId: typeof body.templateId === "string" && body.templateId ? body.templateId : undefined,
     businessName,
     industry: typeof body.industry === "string" ? body.industry : undefined,
     domain: typeof body.domain === "string" ? body.domain : undefined,

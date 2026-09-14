@@ -3,13 +3,14 @@ import type { AiTemplate } from "@/lib/ai-templates";
 type Props = {
   name: string;
   colors: AiTemplate["colors"];
+  image?: string;
 };
 
 /**
  * Miniaturas de landing page geradas a partir das cores do template —
- * substituem a antiga paleta de pontos no catálogo.
+ * mostram a imagem real do modelo (banco de imagens) quando disponível.
  */
-export function TemplatePreview({ name, colors }: Props) {
+export function TemplatePreview({ name, colors, image }: Props) {
   return (
     <div
       className="relative h-full w-full overflow-hidden select-none"
@@ -63,7 +64,11 @@ export function TemplatePreview({ name, colors }: Props) {
             <span className="h-4 w-11 rounded-md border border-white/45" />
           </div>
         </div>
-        <span className="relative h-14 w-14 flex-none rounded-2xl border border-white/20 bg-white/15 shadow-lg" />
+        {image ? (
+          <img src={image} alt="" className="relative h-14 w-14 flex-none rounded-lg border border-white/30 object-cover shadow-lg" loading="lazy" />
+        ) : (
+          <span className="relative h-14 w-14 flex-none rounded-2xl border border-white/20 bg-white/15 shadow-lg" />
+        )}
       </div>
 
       {/* cards */}

@@ -75,14 +75,28 @@ export function renderSection(section: ParsedSection, theme: Theme) {
     case "hero":
       return (
         <section className="flex min-h-[70vh] flex-col justify-center px-6 py-20 md:px-10">
-          <div className={`mx-auto w-full max-w-5xl ${section.align === "center" ? "items-center text-center" : "items-start text-left"} flex flex-col gap-6`}>
-            <p className="text-sm font-bold uppercase tracking-[0.16em]" style={{ color: primary }}>
-              {section.subheadline && <span>{section.subheadline}</span>}
-            </p>
-            <h1 className="max-w-3xl text-5xl font-semibold leading-[0.95] tracking-tighter text-zinc-900 dark:text-zinc-100 md:text-7xl">
-              {section.headline}
-            </h1>
-            {section.cta ? <CtaButton label={section.cta.label} href={section.cta.href} primary={primary} /> : null}
+          <div
+            className={`mx-auto flex w-full max-w-5xl flex-col gap-10 ${
+              section.image ? "md:grid md:grid-cols-2 md:items-center" : ""
+            }`}
+          >
+            <div className={`${section.align === "center" ? "items-center text-center" : "items-start text-left"} flex flex-col gap-6`}>
+              <p className="text-sm font-bold uppercase tracking-[0.16em]" style={{ color: primary }}>
+                {section.subheadline && <span>{section.subheadline}</span>}
+              </p>
+              <h1 className="max-w-3xl text-5xl font-semibold leading-[0.95] tracking-tighter text-zinc-900 dark:text-zinc-100 md:text-7xl">
+                {section.headline}
+              </h1>
+              {section.cta ? <CtaButton label={section.cta.label} href={section.cta.href} primary={primary} /> : null}
+            </div>
+            {section.image ? (
+              <img
+                className="aspect-[4/3] w-full rounded-2xl border border-black/10 object-cover dark:border-white/10"
+                src={section.image}
+                alt=""
+                loading="lazy"
+              />
+            ) : null}
           </div>
         </section>
       );
@@ -90,18 +104,25 @@ export function renderSection(section: ParsedSection, theme: Theme) {
     case "about":
       return (
         <SectionShell section={section}>
-          {section.heading ? <SectionHeading title={section.heading} /> : null}
-          <p className="max-w-3xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-300">{section.body}</p>
-          {section.bullets?.length ? (
-            <ul className="grid max-w-3xl gap-3 md:grid-cols-2">
-              {section.bullets.map((bullet, i) => (
-                <li key={i} className="flex items-start gap-3 text-zinc-700 dark:text-zinc-300">
-                  <span className="mt-2 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: primary }} />
-                  {bullet}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <div className={section.image ? "grid gap-8 md:grid-cols-2 md:items-center" : ""}>
+            <div>
+              {section.heading ? <SectionHeading title={section.heading} /> : null}
+              <p className="max-w-3xl text-lg leading-relaxed text-zinc-600 dark:text-zinc-300">{section.body}</p>
+              {section.bullets?.length ? (
+                <ul className="grid max-w-3xl gap-3 md:grid-cols-2">
+                  {section.bullets.map((bullet, i) => (
+                    <li key={i} className="flex items-start gap-3 text-zinc-700 dark:text-zinc-300">
+                      <span className="mt-2 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: primary }} />
+                      {bullet}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            {section.image ? (
+              <img className="aspect-[4/3] w-full rounded-2xl border border-black/10 object-cover dark:border-white/10" src={section.image} alt="" loading="lazy" />
+            ) : null}
+          </div>
         </SectionShell>
       );
 
@@ -131,10 +152,15 @@ export function renderSection(section: ParsedSection, theme: Theme) {
           {section.intro ? <p className="max-w-2xl text-zinc-600 dark:text-zinc-300">{section.intro}</p> : null}
           <div className="mt-2 flex flex-col">
             {section.items.map((item, i) => (
-              <div key={i} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-black/10 py-5 dark:border-white/10">
-                <div>
-                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{item.name}</h3>
-                  {item.description ? <p className="mt-1 max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">{item.description}</p> : null}
+              <div key={i} className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 py-5 dark:border-white/10">
+                <div className="flex flex-wrap items-center gap-4">
+                  {item.image ? (
+                    <img className="h-14 w-20 rounded-lg border border-black/10 object-cover dark:border-white/10" src={item.image} alt="" loading="lazy" />
+                  ) : null}
+                  <div>
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{item.name}</h3>
+                    {item.description ? <p className="mt-1 max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">{item.description}</p> : null}
+                  </div>
                 </div>
                 {item.price_mt != null ? (
                   <span className="text-sm font-bold" style={{ color: primary }}>
@@ -153,10 +179,21 @@ export function renderSection(section: ParsedSection, theme: Theme) {
           {section.heading ? <SectionHeading title={section.heading} /> : null}
           <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-3">
             {section.items.map((item, i) => (
-              <div key={i} className="flex aspect-[4/3] items-end rounded-2xl border border-black/10 p-5 dark:border-white/10">
-                <div>
-                  <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{item.label}</p>
-                  {item.caption ? <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{item.caption}</p> : null}
+              <div
+                key={i}
+                className="relative flex aspect-[4/3] items-end overflow-hidden rounded-2xl border border-black/10 p-5 dark:border-white/10"
+              >
+                {item.image ? (
+                  <>
+                    <img className="absolute inset-0 h-full w-full object-cover" src={item.image} alt="" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                  </>
+                ) : null}
+                <div className="relative">
+                  <p className={`text-lg font-semibold ${item.image ? "text-white" : "text-zinc-900 dark:text-zinc-100"}`}>{item.label}</p>
+                  {item.caption ? (
+                    <p className={`mt-1 text-sm ${item.image ? "text-white/80" : "text-zinc-600 dark:text-zinc-300"}`}>{item.caption}</p>
+                  ) : null}
                 </div>
               </div>
             ))}

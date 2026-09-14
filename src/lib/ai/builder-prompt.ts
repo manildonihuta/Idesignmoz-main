@@ -12,6 +12,7 @@ export type SiteBrief = {
   colorPreference?: "auto" | "brand" | "custom";
   style?: string;
   typography?: "sans" | "display" | "mono";
+  images?: { hero?: string; about?: string; gallery?: string[] };
 };
 
 export const AI_BRAND_COLOR = "#E31E24";
@@ -30,11 +31,11 @@ export const STYLE_GUIDANCE: Record<string, string> = {
 };
 
 const SECTION_SCHEMA = `
-- "hero": { type, headline, subheadline?, cta?: { label, href? }, align?: "left"|"center" }
-- "about": { type, heading?, body, bullets?: string[] }
+- "hero": { type, headline, subheadline?, image?, cta?: { label, href? }, align?: "left"|"center" }
+- "about": { type, heading?, body, bullets?: string[], image? }
 - "features": { type, heading?, intro?, items: [{ title, text }] }
-- "services": { type, heading?, intro?, items: [{ name, description?, price_mt? }] }  // price_mt só se o brief indicar preços
-- "gallery": { type, heading?, items: [{ label, caption? }] }
+- "services": { type, heading?, intro?, items: [{ name, description?, price_mt?, image? }] }  // price_mt só se o brief indicar preços
+- "gallery": { type, heading?, items: [{ label, caption?, image? }] }
 - "stats": { type, heading?, items: [{ value, label }] }
 - "testimonials": { type, heading?, items: [{ quote, author, role? }] }
 - "faq": { type, heading?, items: [{ q, a }] }
@@ -54,6 +55,7 @@ Não uses HTML. Textos limitados: headline ≤ 200 chars, body ≤ 2000, cada it
 /** Prompt para gerar o site completo a partir do brief. */
 export function buildSitePrompt(brief: SiteBrief): { system: string; user: string } {
   const design = buildDesignGuidance(brief);
+  const images = buildImagesGuidance(brief.images);
   const user = `Cria o website de "${brief.businessName}"${brief.industry ? ` (sector: ${brief.industry})` : ""}${
     brief.domain ? `, domínio ${brief.domain}` : ""
   }${brief.tagline ? `, slogan: "${brief.tagline}"` : ""}.
@@ -61,7 +63,7 @@ export function buildSitePrompt(brief: SiteBrief): { system: string; user: strin
 Brief do cliente:
 """${brief.brief.slice(0, 4000)}"""
 
-${design}
+${design}${images}
 Estrutura obrigatória — devolve JSON:
 {
   "name": "",
@@ -78,8 +80,22 @@ Regras:
 - Usa apenas estes tipos de secção (estrutura exacta):
 ${SECTION_SCHEMA}
 - Gera copy real em português de Moçambique, específica do negócio (nada de lorem ipsum).
-- Não coloques mais de ${LIMITS.itemsPerList} items em listas.`;
+- Não coloques mais de ${LIMITS.itemsPerList} items em listas.
+- Sempre que receberes imagens "IMAGENS REAIS", cola esses URLs tal-e-qual nos campos image das secções (hero usa hero.image, a secção sobre o negócio usa about.image, a galeria usa gallery.items[].image). Nunca edites os URLs nem inventes outros.
+- Se não receberes imagens, omite por completo os campos image (não inventes URLs).`;
   return { system: systemBase(), user };
+}
+
+function buildImagesGuidance(images?: { hero?: string; about?: string; gallery?: string[] }): string {
+  if (!images) return "";
+  const parts: string[] = ["\n--- IMAGENS REAIS (colas ESTAS URLs nos campos image) ---"];
+  if (images.hero) parts.push(`Hero: ${images.hero}`);
+  if (images.about) parts.push(`Secção sobre: ${images.about}`);
+  if (images.gallery?.length) {
+    parts.push(`Galeria (até ${images.gallery.length} itens, um URL por item, pela ordem):`);
+    images.gallery.forEach((url, i) => parts.push(`  ${i + 1}. ${url}`));
+  }
+  return parts.join("\n");
 }
 
 function buildDesignGuidance(brief: SiteBrief): string {

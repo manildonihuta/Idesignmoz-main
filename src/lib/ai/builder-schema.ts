@@ -15,6 +15,7 @@ export type HeroSection = {
   subheadline?: string;
   cta?: Cta;
   align?: "left" | "center";
+  image?: string;
 };
 
 export type AboutSection = {
@@ -22,6 +23,7 @@ export type AboutSection = {
   heading?: string;
   body: string;
   bullets?: string[];
+  image?: string;
 };
 
 export type FeaturesSection = {
@@ -35,13 +37,13 @@ export type ServicesSection = {
   type: "services";
   heading?: string;
   intro?: string;
-  items: Array<{ name: string; description?: string; price_mt?: number | null }>;
+  items: Array<{ name: string; description?: string; price_mt?: number | null; image?: string }>;
 };
 
 export type GallerySection = {
   type: "gallery";
   heading?: string;
-  items: Array<{ label: string; caption?: string }>;
+  items: Array<{ label: string; caption?: string; image?: string }>;
 };
 
 export type StatsSection = {
@@ -168,6 +170,13 @@ function clipString(value: unknown, max: number): string | undefined {
   return isString(value) ? value.slice(0, max) : undefined;
 }
 
+/** Accepts a small set of well-known stock-image hosts + any https URL. */
+function imageUrl(value: unknown): string | undefined {
+  if (!isString(value)) return undefined;
+  if (!/^https:\/\/[^\s]+$/i.test(value)) return undefined;
+  return value.slice(0, 500);
+}
+
 function isCta(value: unknown): value is Cta {
   return isPlainObject(value) && isString(value.label) && (value.href === undefined || isString(value.href));
 }
@@ -203,6 +212,8 @@ const SECTION_SPECS: SectionSpec[] = [
         align: raw.align === "center" ? "center" : raw.align === "left" ? "left" : undefined,
       };
       if (isCta(raw.cta)) section.cta = { label: raw.cta.label.slice(0, 60), href: raw.cta.href };
+      const img = imageUrl(raw.image);
+      if (img) section.image = img;
       return section;
     },
   },
@@ -222,6 +233,8 @@ const SECTION_SPECS: SectionSpec[] = [
           .filter(isString)
           .map((s) => s.slice(0, 400));
       }
+      const img = imageUrl(raw.image);
+      if (img) section.image = img;
       return section;
     },
   },
@@ -254,6 +267,8 @@ const SECTION_SPECS: SectionSpec[] = [
           if (typeof item.price_mt === "number" && Number.isFinite(item.price_mt) && item.price_mt >= 0) {
             out.price_mt = Math.round(item.price_mt);
           }
+          const img = imageUrl(item.image);
+          if (img) out.image = img;
           return out;
         }),
       );
@@ -266,11 +281,13 @@ const SECTION_SPECS: SectionSpec[] = [
     pick: (raw) => {
       const items = pickItems(
         raw.items,
-        listItem((item) =>
-          isString(item.label)
-            ? { label: item.label.slice(0, 160), caption: clipString(item.caption, 400) }
-            : undefined,
-        ),
+        listItem((item) => {
+          if (!isString(item.label)) return undefined;
+          const out: GallerySection["items"][number] = { label: item.label.slice(0, 160), caption: clipString(item.caption, 400) };
+          const img = imageUrl(item.image);
+          if (img) out.image = img;
+          return out;
+        }),
       );
       if (!items) return null;
       return { type: "gallery", heading: clipString(raw.heading, 200), items: items as GallerySection["items"] };
