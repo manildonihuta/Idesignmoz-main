@@ -8,7 +8,6 @@ import {
   Monitor,
   ShoppingCart,
   ChevronDown,
-  Bell,
   Settings,
   HelpCircle,
   MessageSquare,
@@ -34,7 +33,7 @@ import {
 } from "lucide-react";
 import type { AdminMessage, AdminOrder, AdminDomain, AdminProfile, AdminSubscription, Notice } from "./admin/types";
 import { useAdminData } from "./admin/use-admin-data";
-import { ActivityDropdown, type ActivityItem } from "./core/activity-dropdown";
+import { NotificationPopover, type Notification as NotifEntry } from "@/components/ui/notification-popover";
 import {
   OverviewView,
   MessagesView,
@@ -354,18 +353,6 @@ type NotifItem = {
   createdAt: string;
 };
 
-const fmtWhen = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "agora";
-  if (mins < 60) return `${mins} min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} d`;
-  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" });
-};
-
 async function fetchNotifItems(): Promise<NotifItem[] | null> {
   try {
     const res = await fetch("/api/notifications", { headers: { Accept: "application/json" } });
@@ -377,11 +364,24 @@ async function fetchNotifItems(): Promise<NotifItem[] | null> {
   }
 }
 
+function toEntry(n: NotifItem): NotifEntry {
+  return {
+    id: n.id,
+    title: n.title,
+    description: n.body ?? "",
+    timestamp: new Date(n.createdAt),
+    read: Boolean(n.readAt),
+  };
+}
+
 function NotificationsBell() {
-  const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const ref = useRef<HTMLDivElement | null>(null);
+  const latest = useRef<NotifItem[]>([]);
+
+  useEffect(() => {
+    latest.current = items;
+  }, [items]);
 
   useEffect(() => {
     let active = true;
@@ -389,11 +389,11 @@ function NotificationsBell() {
     async function loadInitial() {
       const loaded = await fetchNotifItems();
       if (!active) return;
-      setItems(loaded ?? []);
+      if (loaded) setItems(loaded);
       setLoading(false);
     }
 
-    loadInitial();
+    void loadInitial();
 
     return () => {
       active = false;
@@ -409,112 +409,53 @@ function NotificationsBell() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
-
-  const unread = items.filter((i) => !i.readAt).length;
-
-  async function markRead(id?: string) {
+  async function persist(next: NotifEntry[]) {
+    const wasRead = new Set(latest.current.filter((n) => n.readAt).map((n) => n.id));
+    const newly = next.filter((n) => n.read && !wasRead.has(n.id));
+    if (newly.length === 0) return;
+    const hadUnread = latest.current.filter((n) => !n.readAt).map((n) => n.id);
+    const markAll =
+      hadUnread.length > 0 && newly.length === hadUnread.length && newly.every((n) => hadUnread.includes(n.id));
     try {
-      await fetch("/api/notifications/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: id ? JSON.stringify({ id }) : "{}",
-      });
+      if (markAll) {
+        await fetch("/api/notifications/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+      } else {
+        for (const n of newly) {
+          await fetch("/api/notifications/read", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: n.id }),
+          });
+        }
+      }
     } catch {
       /* ignore */
-    } finally {
-      const loaded = await fetchNotifItems();
-      if (loaded) setItems(loaded);
     }
   }
 
-  const notifIcon = (kind: string) => {
-    if (kind.includes("subscription")) return RefreshCw;
-    if (kind.includes("hosting")) return ServerCog;
-    if (kind.includes("domain")) return Globe;
-    if (kind.includes("ai_site")) return Rocket;
-    if (kind.includes("project")) return FileSignature;
-    return Bell;
-  };
-
-  const activityItems: ActivityItem[] = items.map((item) => ({
-    id: item.id,
-    icon: notifIcon(item.kind),
-    title: item.title,
-    description: item.body ?? undefined,
-    time: fmtWhen(item.createdAt),
-  }));
-
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg border border-line bg-surface p-2 text-muted transition-colors hover:text-paper"
-        title="Notificações"
-        aria-label="Notificações"
-      >
-        <Bell className="h-4 w-4" />
-        {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-medium text-white">
-            {unread}
-          </span>
-        )}
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 top-11 z-50 w-80"
-          >
-            <ActivityDropdown
-              open
-              onToggle={() => setOpen((v) => !v)}
-              title={
-                items.length === 0
-                  ? "Notificações"
-                  : unread > 0
-                    ? `${unread} por ler`
-                    : "Tudo lido"
-              }
-              subtitle="Tem novidades no painel"
-              items={activityItems}
-              icon={Bell}
-              emptyText={loading ? "A carregar…" : "Sem notificações."}
-              renderItemExtra={(item) => {
-                const notif = items.find((n) => n.id === item.id);
-                if (!notif || notif.readAt) return null;
-                return (
-                  <button
-                    type="button"
-                    onClick={() => void markRead(item.id)}
-                    className="mt-1 block text-xs text-brand hover:underline"
-                  >
-                    Marcar como lida
-                  </button>
-                );
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <NotificationPopover
+      notifications={items.map(toEntry)}
+      onNotificationsChange={(next) => {
+        setItems(
+          next.map((n) => ({
+            id: n.id,
+            kind: "",
+            title: n.title,
+            body: n.description,
+            link: null,
+            readAt: n.read ? (latest.current.find((i) => i.id === n.id)?.readAt ?? new Date().toISOString()) : null,
+            createdAt: n.timestamp.toISOString(),
+          })),
+        );
+        void persist(next);
+      }}
+      emptyText={loading ? "A carregar…" : "Sem notificações."}
+    />
   );
 }
 

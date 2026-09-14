@@ -110,7 +110,7 @@ export function DropdownMenu({ label, menu, onNavigate, alignEnd = false }: Drop
         {open && (
           <div className={`absolute top-full z-50 pt-3 ${alignEnd ? "right-0" : "left-0"}`}>
             <motion.div
-              className="w-max border border-line bg-surface p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+              className="w-max border border-white/10 bg-[#111111]/90 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
               style={{ borderRadius: 16 }}
               initial={{ opacity: 0, y: -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
