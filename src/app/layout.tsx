@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { DM_Mono, Fredoka, Manrope, Roboto, Roboto_Mono } from "next/font/google";
+import { DM_Mono, DM_Sans } from "next/font/google";
 import { JsonLd } from "@/components/json-ld";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PageTracking } from "@/components/page-tracking";
@@ -8,10 +8,10 @@ import { DEFAULT_KEYWORDS, organizationSchema, webSiteSchema } from "@/lib/seo";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
-const fredoka = Fredoka({
+const dmSans = DM_Sans({
   weight: "variable",
   subsets: ["latin"],
-  variable: "--font-fredoka",
+  variable: "--font-dmsans",
   display: "swap",
 });
 
@@ -19,27 +19,6 @@ const dmMono = DM_Mono({
   weight: ["400", "500"],
   subsets: ["latin"],
   variable: "--font-dmmono",
-  display: "swap",
-});
-
-const roboto = Roboto({
-  weight: "variable",
-  subsets: ["latin"],
-  variable: "--font-roboto",
-  display: "swap",
-});
-
-const robotoMono = Roboto_Mono({
-  weight: ["400", "500"],
-  subsets: ["latin"],
-  variable: "--font-roboto-mono",
-  display: "swap",
-});
-
-const manrope = Manrope({
-  weight: "variable",
-  subsets: ["latin"],
-  variable: "--font-manrope",
   display: "swap",
 });
 
@@ -72,7 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="pt-MZ"
       suppressHydrationWarning
-      className={`${fredoka.variable} ${dmMono.variable} ${roboto.variable} ${robotoMono.variable} ${manrope.variable}`}
+      className={`${dmSans.variable} ${dmMono.variable}`}
     >
       <head>
         <script
