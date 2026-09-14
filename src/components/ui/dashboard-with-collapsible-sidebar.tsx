@@ -552,11 +552,11 @@ const Sidebar = ({ nav, active, onSelect }: SidebarProps) => {
       onMouseLeave={() => setOpen(false)}
       animate={{ width: open ? 256 : 64 }}
       transition={{ type: "tween", duration: reduced ? 0 : 0.32, ease: [0.25, 1, 0.5, 1] }}
-      className="sticky top-0 h-screen shrink-0 overflow-hidden border-r border-line bg-surface p-2 shadow-sm"
+      className="sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-line bg-surface p-2 shadow-sm"
     >
       <TitleSection open={open} />
 
-      <div className="mb-8 space-y-1">
+      <div className="admin-nav-scroll min-h-0 flex-1 space-y-1 overflow-y-auto pb-4">
         {nav.map((item) => (
           <Option key={item.id} item={item} active={active} onSelect={onSelect} open={open} />
         ))}
