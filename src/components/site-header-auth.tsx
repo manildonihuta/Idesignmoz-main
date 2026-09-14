@@ -11,30 +11,45 @@ interface HeaderAuthProps {
   onNavigate?: () => void;
 }
 
+/* Cache da sessão em memória do módulo: o HeaderAuth é remontado em cada
+ * navegação de página, mas o módulo sobrevive — assim o avatar nunca
+ * desaparece enquanto a nova sessão é buscada. */
+let cachedUser: SessionUser = null;
+let cachedAt = 0;
+let inflight: Promise<SessionUser> | null = null;
+
+function fetchUserNow(): Promise<SessionUser> {
+  if (!inflight) {
+    inflight = fetch("/api/auth/session")
+      .then((res) => res.json())
+      .then((data: { user?: { email?: string; fullName?: string } }) => data.user ?? null)
+      .catch(() => null)
+      .then((user) => {
+        cachedUser = user;
+        cachedAt = Date.now();
+        return user;
+      })
+      .finally(() => {
+        inflight = null;
+      });
+  }
+  return inflight;
+}
+
 export function HeaderAuth({ onNavigate }: HeaderAuthProps) {
   const pathname = usePathname();
-  const [user, setUser] = useState<SessionUser>(null);
-  const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<SessionUser>(cachedUser);
+  const [ready, setReady] = useState(() => cachedAt > 0);
 
   useEffect(() => {
     let active = true;
-
-    async function load() {
-      try {
-        const res = await fetch("/api/auth/session");
-        const data = (await res.json()) as { user?: { email?: string; fullName?: string } };
-        if (!active) return;
-        setUser(data.user ?? null);
-        setReady(true);
-      } catch {
-        if (!active) return;
-        setUser(null);
-        setReady(true);
-      }
-    }
-
-    load();
-
+    const sync = async () => {
+      const next = await fetchUserNow();
+      if (!active) return;
+      setUser(next);
+      setReady(true);
+    };
+    void sync();
     return () => {
       active = false;
     };
@@ -44,24 +59,30 @@ export function HeaderAuth({ onNavigate }: HeaderAuthProps) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
+      cachedUser = null;
+      cachedAt = 0;
       setUser(null);
     }
   }
 
-  if (!ready) return null;
-
-  if (!user) {
-    return (
-      <Link className="nav-login" href="/login" onClick={onNavigate}>Entrar</Link>
-    );
+  if (!ready) {
+    return <span className="nav-auth-placeholder" aria-hidden="true" />;
   }
 
   return (
-    <AccountMenu
-      name={user.fullName}
-      email={user.email}
-      onSignOut={() => void signOut()}
-      onNavigate={onNavigate}
-    />
+    <span key={user ? "account" : "login"} className="nav-auth">
+      {user ? (
+        <AccountMenu
+          name={user.fullName}
+          email={user.email}
+          onSignOut={() => void signOut()}
+          onNavigate={onNavigate}
+        />
+      ) : (
+        <Link className="nav-login" href="/login" onClick={onNavigate}>
+          Entrar
+        </Link>
+      )}
+    </span>
   );
 }
