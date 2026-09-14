@@ -107,15 +107,15 @@ export function AccountMenu({ name, email, onSignOut, onNavigate }: AccountMenuP
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute right-0 z-50 mt-3 w-64 overflow-hidden rounded-xl border border-white/10 bg-[#111111]/90 shadow-2xl backdrop-blur-xl"
+            className="absolute right-0 z-50 mt-3 w-64 overflow-hidden rounded-xl border border-[#ffffff1A] bg-[#111111E6] shadow-2xl backdrop-blur-xl"
           >
-            <div className="flex items-center gap-3 border-b border-white/10 p-4">
+            <div className="flex items-center gap-3 border-b border-[#ffffff1A] p-4">
               <Avatar className="size-10 flex-none">
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <span className="block truncate text-sm font-medium text-white">{name ?? "Utilizador"}</span>
-                <span className="block truncate text-xs text-white/60">{email}</span>
+                <span className="block truncate text-xs text-white opacity-60">{email}</span>
               </div>
             </div>
 
@@ -123,8 +123,8 @@ export function AccountMenu({ name, email, onSignOut, onNavigate }: AccountMenuP
               {items.map((item, index) => {
                 const Icon = item.icon;
                 const rowClass = cn(
-                  "flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[#ffffff37]",
-                  item.destructive ? "text-white/70 hover:text-[#ff5d76]" : "text-white",
+                  "flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-white transition-colors hover:bg-[#ffffff37]",
+                  item.destructive && "text-white opacity-80 hover:text-[#ff5d76] hover:opacity-100",
                 );
                 const inner = (
                   <>

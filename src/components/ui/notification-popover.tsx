@@ -65,7 +65,7 @@ const NotificationList = ({
   onMarkAsRead,
   textColor,
   hoverBgColor,
-  dividerColor = "divide-white/10",
+  dividerColor = "divide-[#ffffff1A]",
 }: NotificationListProps) => (
   <div className={cn("divide-y", dividerColor)}>
     {notifications.map((notification, index) => (
@@ -99,11 +99,11 @@ export const NotificationPopover = ({
   notifications: initialNotifications = [],
   onNotificationsChange,
   buttonClassName = "shadow-[0_0_20px_rgba(0,0,0,0.2)]",
-  popoverClassName = "bg-[#111111]/90",
+  popoverClassName = "bg-[#111111E6]",
   textColor = "text-white",
   hoverBgColor = "hover:bg-[#ffffff37]",
-  dividerColor = "divide-white/10",
-  headerBorderColor = "border-white/10",
+  dividerColor = "divide-[#ffffff1A]",
+  headerBorderColor = "border-[#ffffff1A]",
   title = "Notificações",
   markAllLabel = "Marcar todas como lidas",
   emptyText = "Sem notificações.",
@@ -159,7 +159,7 @@ export const NotificationPopover = ({
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
             className={cn(
-              "absolute right-0 z-50 mt-2 max-h-[400px] w-80 overflow-y-auto rounded-xl border border-white/10 shadow-2xl backdrop-blur-xl",
+              "absolute right-0 z-50 mt-2 max-h-[400px] w-80 overflow-y-auto rounded-xl border border-[#ffffff1A] shadow-2xl backdrop-blur-xl",
               popoverClassName,
             )}
           >

@@ -44,7 +44,7 @@ export const buttonVariants = cva(
         soft: "bg-brand/15 text-brand hover:bg-brand/25",
         ok: "bg-ok/15 text-ok hover:bg-ok/25",
         glass: "bg-[#11111198] text-white backdrop-blur-sm hover:bg-[#111111d1]",
-        ghostGlass: "text-white/80 hover:bg-[#ffffff20] hover:text-white disabled:opacity-40",
+        ghostGlass: "text-white opacity-80 hover:bg-[#ffffff20] hover:opacity-100 disabled:opacity-40",
       },
       size: {
         sm: "rounded-md px-2.5 py-1 text-xs",

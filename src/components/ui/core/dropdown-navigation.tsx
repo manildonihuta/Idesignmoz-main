@@ -43,7 +43,7 @@ export function DropdownMenu({ label, menu, onNavigate, alignEnd = false }: Drop
     let rowIndex = 0;
     return menu.map((column) => (
       <div className="min-w-[170px]" key={column.title}>
-        <h3 className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+        <h3 className="mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-white opacity-50">
           {column.title}
         </h3>
         <ul className="space-y-5">
@@ -60,16 +60,16 @@ export function DropdownMenu({ label, menu, onNavigate, alignEnd = false }: Drop
               >
                 <Link href={item.href} onClick={onNavigate} className="group flex items-start gap-3">
                   {Icon && (
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-line text-paper transition-colors duration-300 group-hover:bg-brand/10 group-hover:text-brand">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-[#ffffff1A] text-white transition-colors duration-300 group-hover:bg-brand/10 group-hover:text-brand">
                       <Icon className="size-5 flex-none" aria-hidden="true" />
                     </span>
                   )}
                   <span className="leading-5">
-                    <span className="block text-sm font-medium text-paper transition-colors duration-300 group-hover:text-brand">
+                    <span className="block text-sm font-medium text-white transition-colors duration-300 group-hover:text-brand">
                       {item.label}
                     </span>
                     {item.description && (
-                      <span className="block max-w-[180px] text-xs text-muted transition-colors duration-300 group-hover:text-paper">
+                      <span className="block max-w-[180px] text-xs text-white opacity-60 transition-colors duration-300 group-hover:opacity-100">
                         {item.description}
                       </span>
                     )}
@@ -110,7 +110,7 @@ export function DropdownMenu({ label, menu, onNavigate, alignEnd = false }: Drop
         {open && (
           <div className={`absolute top-full z-50 pt-3 ${alignEnd ? "right-0" : "left-0"}`}>
             <motion.div
-              className="w-max border border-white/10 bg-[#111111]/90 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+              className="w-max border border-[#ffffff1A] bg-[#111111E6] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
               style={{ borderRadius: 16 }}
               initial={{ opacity: 0, y: -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
