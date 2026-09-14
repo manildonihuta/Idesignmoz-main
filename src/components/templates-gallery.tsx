@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AI_TEMPLATES } from "@/lib/ai-templates";
+import { TemplatePreview } from "@/components/templates/template-preview";
 
 export function TemplatesGallery() {
   return (
@@ -31,16 +32,8 @@ export function TemplatesGallery() {
             key={template.id}
             className="ai-font flex flex-col overflow-hidden rounded-2xl border border-[var(--ai-border)] bg-[var(--ai-surface)] transition-colors hover:border-[var(--ai-border-strong)]"
           >
-            <div
-              className="relative h-44 overflow-hidden"
-              style={{
-                background: `linear-gradient(135deg, ${template.colors.from} 0%, ${template.colors.to} 60%, ${template.colors.accent} 120%)`,
-              }}
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,.28),transparent_55%)]" />
-              <span className="ai-display absolute bottom-4 left-5 right-5 text-3xl text-white/95">
-                {template.name}
-              </span>
+            <div className="h-44 overflow-hidden">
+              <TemplatePreview name={template.name} colors={template.colors} />
             </div>
 
             <div className="flex flex-1 flex-col gap-3 p-6">
@@ -54,21 +47,7 @@ export function TemplatesGallery() {
                   {template.description}
                 </p>
               </div>
-              <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="h-5 w-5 rounded-full border border-white/20"
-                    style={{ background: template.colors.from }}
-                  />
-                  <span
-                    className="h-5 w-5 rounded-full border border-white/20"
-                    style={{ background: template.colors.to }}
-                  />
-                  <span
-                    className="h-5 w-5 rounded-full border border-white/20"
-                    style={{ background: template.colors.accent }}
-                  />
-                </div>
+              <div className="mt-auto flex justify-end pt-4">
                 <Link
                   className="ai-btn !px-4 !py-2 text-xs"
                   href={`/dashboard/ai-builder/new?template=${template.id}`}
