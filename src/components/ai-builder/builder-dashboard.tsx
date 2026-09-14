@@ -163,11 +163,7 @@ export function BuilderDashboard() {
             <span className="ai-dot" />
             IDesign AI Builder
           </span>
-          <h1 className="ai-display mt-5 text-4xl md:text-6xl">
-            Transforme a sua ideia
-            <br />
-            num <span className="ai-gradient-text">website</span>.
-          </h1>
+          <h1 className="ai-display mt-5 text-2xl">Transforme a sua ideia</h1>
           <p className="mt-5 text-[15px] leading-relaxed text-[var(--ai-muted)]">
             Descreva o seu negócio e a inteligência artificial desenha um site
             completo em português de Moçambique — textos, páginas e estilo únicos,

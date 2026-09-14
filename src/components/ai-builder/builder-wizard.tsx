@@ -173,7 +173,7 @@ export function BuilderWizard({
           <span className="ai-dot" />
           IDesign AI Builder
         </span>
-        <h1 className="ai-display mt-4 text-3xl md:text-5xl">
+        <h1 className="ai-display mt-4 text-2xl">
           Criar um novo <span className="ai-gradient-text">website</span>
         </h1>
       </div>
