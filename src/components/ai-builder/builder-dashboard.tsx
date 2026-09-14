@@ -177,7 +177,7 @@ export function BuilderDashboard() {
             <Link className="ai-btn" href="/dashboard/ai-builder/new">
               ✨ Criar com IA
             </Link>
-            <Link className="ai-btn ai-btn-ghost" href="/templates">
+            <Link className="ai-btn ai-btn-ghost" href="/dashboard/templates">
               Ver modelos de design
             </Link>
           </div>

@@ -16,7 +16,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Criar",
     items: [
       { href: "/dashboard/ai-builder", label: "Criar com IA", icon: "◇" },
-      { href: "/templates", label: "Modelos de design", icon: "▤" },
+      { href: "/dashboard/templates", label: "Modelos de design", icon: "▤" },
     ],
   },
   {
