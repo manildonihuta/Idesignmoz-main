@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/schemas";
+import { GoogleAuthButton } from "@/components/google-auth-button";
 
 export default function LoginPanel() {
   const router = useRouter();
@@ -53,7 +54,8 @@ export default function LoginPanel() {
           <Link className="text-link" href="/">Ir para a página inicial <span aria-hidden="true">↗</span></Link>
         </div>
       ) : (
-        <form className="contact-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <>
+          <form className="contact-form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <label>Email
             <input {...register("email")} type="email" placeholder="voce@empresa.com" autoComplete="email" />
             {errors.email && <span style={{ color: "#ff5d76", fontSize: 12, display: "block", marginTop: 4 }}>{errors.email.message}</span>}
@@ -67,6 +69,8 @@ export default function LoginPanel() {
             {loading ? "A entrar…" : "Entrar"} <span aria-hidden="true">↗</span>
           </button>
         </form>
+          <GoogleAuthButton />
+        </>
       )}
       <p className="auth-note">Ainda não tem uma conta? <Link href="/signup">Criar conta</Link></p>
     </div>

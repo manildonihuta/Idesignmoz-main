@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupInput } from "@/lib/schemas";
+import { GoogleAuthButton } from "@/components/google-auth-button";
 
 export default function SignupPanel() {
   const [loading, setLoading] = useState(false);
@@ -55,7 +56,8 @@ export default function SignupPanel() {
           <Link className="text-link" href="/login">Ir para o início de sessão <span aria-hidden="true">↗</span></Link>
         </div>
       ) : (
-        <form className="contact-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <>
+          <form className="contact-form" onSubmit={handleSubmit(onSubmit)} noValidate>
           <label>Nome
             <input {...register("full_name")} placeholder="O seu nome" autoComplete="name" />
             {fieldError(errors.full_name?.message)}
@@ -76,6 +78,8 @@ export default function SignupPanel() {
             {loading ? "A criar…" : "Criar conta"} <span aria-hidden="true">↗</span>
           </button>
         </form>
+          <GoogleAuthButton />
+        </>
       )}
       <p className="auth-note">Já tem uma conta? <Link href="/login">Entrar</Link></p>
     </div>
