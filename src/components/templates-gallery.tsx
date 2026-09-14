@@ -1,9 +1,15 @@
-import Link from "next/link";
+"use client";
 
-import { AI_TEMPLATES } from "@/lib/ai-templates";
+import Link from "next/link";
+import { useState } from "react";
+
+import { AI_TEMPLATES, type AiTemplate } from "@/lib/ai-templates";
 import { TemplatePreview } from "@/components/templates/template-preview";
+import { TemplatePreviewModal } from "@/components/templates/template-preview-modal";
 
 export function TemplatesGallery() {
+  const [preview, setPreview] = useState<AiTemplate | null>(null);
+
   return (
     <>
       <section className="page-hero">
@@ -32,9 +38,14 @@ export function TemplatesGallery() {
             key={template.id}
             className="ai-font flex flex-col overflow-hidden rounded-2xl border border-[var(--ai-border)] bg-[var(--ai-surface)] transition-colors hover:border-[var(--ai-border-strong)]"
           >
-            <div className="h-44 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setPreview(template)}
+              className="relative block h-44 w-full cursor-pointer overflow-hidden text-left transition-transform duration-200 hover:scale-[1.015]"
+              aria-label={`Previsualizar ${template.name}`}
+            >
               <TemplatePreview name={template.name} colors={template.colors} image={template.images.hero} />
-            </div>
+            </button>
 
             <div className="flex flex-1 flex-col gap-3 p-6">
               <div className="flex flex-wrap items-center gap-2">
@@ -47,7 +58,14 @@ export function TemplatesGallery() {
                   {template.description}
                 </p>
               </div>
-              <div className="mt-auto flex justify-end pt-4">
+              <div className="mt-auto flex justify-end gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setPreview(template)}
+                  className="ai-btn ai-btn-ghost !px-4 !py-2 text-xs"
+                >
+                  👁 Previsualizar
+                </button>
                 <Link
                   className="ai-btn !px-4 !py-2 text-xs"
                   href={`/dashboard/ai-builder/new?template=${template.id}`}
@@ -79,6 +97,8 @@ export function TemplatesGallery() {
           </Link>
         </div>
       </section>
+
+      <TemplatePreviewModal open={preview !== null} onClose={() => setPreview(null)} template={preview} />
     </>
   );
 }
