@@ -17,7 +17,7 @@ export default async function DashboardEmailPage() {
   const services = await listClientEmailServices(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <EmailsView services={services} />
     </DashboardShell>
   );

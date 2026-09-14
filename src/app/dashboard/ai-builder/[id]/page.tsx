@@ -24,7 +24,7 @@ export default async function AiBuilderEditorPage({
   if (!result.ok) notFound();
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <BuilderEditor initialSite={result.site} />
     </DashboardShell>
   );

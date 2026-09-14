@@ -20,7 +20,7 @@ export default async function DashboardDomainsPage() {
   const domains = await listOwnedDomains(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <DomainManager domains={domains} />
     </DashboardShell>
   );

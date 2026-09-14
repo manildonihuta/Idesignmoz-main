@@ -23,7 +23,7 @@ export default async function DashboardEmailDnsPage({
   if (!bundle) redirect("/dashboard/email");
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <EmailDnsView initial={bundle} />
     </DashboardShell>
   );

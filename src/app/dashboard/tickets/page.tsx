@@ -17,7 +17,7 @@ export default async function DashboardTicketsPage() {
   const tickets = await listClientTickets(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <TicketsView initialData={tickets} />
     </DashboardShell>
   );

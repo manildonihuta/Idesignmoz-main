@@ -27,7 +27,7 @@ export default async function ManageHostingLayout({
   }
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <ManageHostingShell hostingId={hostingId}>{children}</ManageHostingShell>
     </DashboardShell>
   );

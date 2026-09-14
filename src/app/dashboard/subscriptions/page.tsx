@@ -17,7 +17,7 @@ export default async function DashboardSubscriptionsPage() {
   const subscriptions = await listClientSubscriptions(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <SubscriptionsView subscriptions={subscriptions} />
     </DashboardShell>
   );

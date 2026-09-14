@@ -15,7 +15,7 @@ export default async function AiBuilderDashboardPage() {
   if (!ctx.authenticated) redirect("/login");
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <BuilderDashboard />
     </DashboardShell>
   );

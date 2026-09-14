@@ -27,7 +27,7 @@ export default async function ManageDomainLayout({
   }
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <ManageDomainShell fullDomain={domain}>{children}</ManageDomainShell>
     </DashboardShell>
   );

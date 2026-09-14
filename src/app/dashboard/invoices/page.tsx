@@ -37,7 +37,7 @@ export default async function DashboardInvoicesPage() {
   const company = await getCompanyInfo();
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <InvoicesView invoices={mapDbInvoices(dbInvoices)} company={company} />
     </DashboardShell>
   );

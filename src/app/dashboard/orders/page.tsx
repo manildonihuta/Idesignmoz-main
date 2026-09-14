@@ -17,7 +17,7 @@ export default async function DashboardOrdersPage() {
   const orders = await listClientOrders(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <OrdersView orders={orders} />
     </DashboardShell>
   );

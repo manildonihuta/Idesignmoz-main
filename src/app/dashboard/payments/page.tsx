@@ -17,7 +17,7 @@ export default async function DashboardPaymentsPage() {
   const payments = await listClientPayments(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <PaymentsView payments={payments} />
     </DashboardShell>
   );

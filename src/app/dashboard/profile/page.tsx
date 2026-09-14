@@ -14,7 +14,7 @@ export default async function DashboardProfilePage() {
   if (!ctx.authenticated) redirect("/login");
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <ProfileView
         initial={{
           fullName: ctx.name ?? "",

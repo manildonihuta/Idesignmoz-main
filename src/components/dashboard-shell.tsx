@@ -47,7 +47,13 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export function DashboardShell({ children }: { children: ReactNode }) {
+export function DashboardShell({
+  children,
+  user,
+}: {
+  children: ReactNode;
+  user?: { name?: string; email?: string };
+}) {
   const pathname = usePathname();
 
   function isActive(href: string) {
@@ -56,6 +62,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     }
     return pathname.startsWith(href);
   }
+
+  const initials = (user?.name || user?.email || "?").trim().slice(0, 2).toUpperCase();
 
   return (
     <div className="dash-shell">
@@ -93,8 +101,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             IDesign Moz
           </Link>
           <div className="dash-user">
-            <span className="dash-avatar">M</span>
-            <span className="dash-name">Conta</span>
+            <span className="dash-avatar">{initials}</span>
+            <span className="dash-name">{user?.name || "Conta"}</span>
+            {user?.email ? <span className="dash-email">{user.email}</span> : null}
           </div>
         </header>
         <main id="main" className="dash-content">{children}</main>

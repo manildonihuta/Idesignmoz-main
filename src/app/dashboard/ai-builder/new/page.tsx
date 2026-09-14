@@ -19,7 +19,7 @@ export default async function NewAiBuilderPage({ searchParams }: Props) {
 
   const { brief, template } = await searchParams;
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <BuilderWizard
         initialBrief={brief ?? ""}
         initialTemplate={getAiTemplate(template ?? null)}

@@ -23,7 +23,7 @@ export default async function DashboardEmailServicePage({
   if (!service) redirect("/dashboard/email");
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <EmailServiceView service={service} />
     </DashboardShell>
   );

@@ -17,7 +17,7 @@ export default async function DashboardHostingPage() {
   const accounts = await listClientHostingAccounts(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <HostingAccountsView accounts={accounts} />
     </DashboardShell>
   );

@@ -22,7 +22,7 @@ export default async function DashboardOverviewPage() {
   const offers = await getCrossSellOffers(owned);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <DashboardOverview counts={counts} offers={offers} />
     </DashboardShell>
   );

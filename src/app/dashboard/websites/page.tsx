@@ -17,7 +17,7 @@ export default async function DashboardWebsitesPage() {
   const projects = await listClientProjects(ctx);
 
   return (
-    <DashboardShell>
+    <DashboardShell user={ctx}>
       <WebsitesView projects={projects} />
     </DashboardShell>
   );

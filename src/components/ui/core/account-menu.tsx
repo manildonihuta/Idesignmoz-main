@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { LayoutDashboard, CircleUserRound, CreditCard, ReceiptText, Settings, LogOut, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, CircleUserRound, CreditCard, ReceiptText, LogOut, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "./avatar";
 import { cn } from "@/lib/utils";
 
@@ -65,11 +65,10 @@ export function AccountMenu({ name, email, onSignOut, onNavigate }: AccountMenuP
   };
 
   const items: AccountItem[] = [
-    { id: "admin", label: "Painel", icon: LayoutDashboard, href: "/admin", onSelect: go },
+    { id: "admin", label: "Painel", icon: LayoutDashboard, href: "/dashboard", onSelect: go },
     { id: "profile", label: "O meu perfil", icon: CircleUserRound, href: "/dashboard/profile", onSelect: go },
     { id: "subscriptions", label: "A minha assinatura", icon: CreditCard, href: "/dashboard/subscriptions", onSelect: go },
     { id: "invoices", label: "As minhas faturas", icon: ReceiptText, href: "/dashboard/invoices", onSelect: go },
-    { id: "settings", label: "Definições da conta", icon: Settings, href: "/dashboard/profile", onSelect: go },
     {
       id: "signout",
       label: "Sair",
