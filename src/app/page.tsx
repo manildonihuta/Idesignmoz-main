@@ -15,6 +15,8 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { formatMZN } from "@/lib/currency";
 import { FUTURE_FEATURES, type FutureFeature } from "@/lib/platform-futures";
 import HeroAntigravity from "@/components/hero-antigravity";
+import { SelectedWorksGrid } from "@/components/selected-works-grid";
+import ThreeDTestimonials from "@/components/ui/3d-testimonails";
 
 export const dynamic = "force-dynamic";
 
@@ -141,10 +143,17 @@ export default async function HomePage() {
               <Link className="button" href="/domains/search">
                 Search Domain <Arrow />
               </Link>
+              <Link className="outline-button" href="/websites">
+                Criar Site Grátis com IA <Arrow />
+              </Link>
               <Link className="outline-button" href="/hosting">
                 Choose Hosting <Arrow />
               </Link>
             </div>
+            {/* Free builder note */}
+            <p className="mt-4 text-center text-xs" style={{ color: "#777a72" }}>
+              ✦ Website Builder 100% grátis · sem cartão · publique em segundos
+            </p>
           </div>
         </section>
 
@@ -190,6 +199,60 @@ export default async function HomePage() {
                 </b>
               </Link>
             ))}
+          </div>
+        </section>
+
+        {/* Free AI Website Builder Promo */}
+        <section className="section-wrap" aria-labelledby="ai-builder-promo-heading">
+          <div
+            className="rounded-2xl border p-6 md:p-10"
+            style={{
+              background: "linear-gradient(135deg, #181d12 0%, #0b0c0a 100%)",
+              borderColor: "rgba(230,0,35,0.18)",
+            }}
+          >
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-5 max-w-xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="site-status live">Disponível Agora</span>
+                  <span
+                    style={{ border: "1px solid rgba(230,0,35,0.35)", color: "#e60023" }}
+                    className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
+                  >
+                    0 MT · Totalmente Grátis
+                  </span>
+                </div>
+                <h2 id="ai-builder-promo-heading" className="text-2xl font-semibold tracking-tight text-paper md:text-3xl">
+                  Crie o seu website com IA{" "}
+                  <em className="font-extrabold not-italic" style={{ color: "var(--lime)" }}>em menos de 1 minuto.</em>
+                </h2>
+                <p className="text-sm leading-relaxed text-muted">
+                  Sem cartão de crédito, designer ou programador. Descreva o negócio, escolha o estilo e a IA gera textos, estrutura e cores. Publique grátis ou registe o seu domínio{" "}
+                  <b className="text-paper">.co.mz</b> a partir de 900 MT/ano.
+                </p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-muted sm:grid-cols-4">
+                  {[
+                    { icon: "🎯", label: "Geração com IA" },
+                    { icon: "✏️", label: "Editor visual" },
+                    { icon: "🌐", label: "Domínio .co.mz" },
+                    { icon: "🚀", label: "Publicação instantânea" },
+                  ].map((item) => (
+                    <span key={item.label} className="flex items-center gap-1.5">
+                      <span>{item.icon}</span> {item.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
+                <Link className="button" href="/websites">
+                  Criar Site Grátis agora <Arrow />
+                </Link>
+                <Link className="outline-button" href="/domains/search">
+                  Pesquisar Domínio .co.mz <Arrow />
+                </Link>
+                <p className="text-[11px] text-muted">Sem compromisso · 100% grátis para sempre.</p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -275,39 +338,7 @@ export default async function HomePage() {
         </section>
 
         {/* Work / portfolio */}
-        <section className="work-section section-wrap" id="work" aria-label="Trabalhos seleccionados">
-          <div className="section-kicker">
-            <span>04</span>
-            <span className="rule" />
-            <span>Trabalhos seleccionados</span>
-          </div>
-          <div className="work-heading">
-            <h2>
-              Feito em Moçambique. <em>Construído para o mundo.</em>
-            </h2>
-            <Link className="text-link" href="/portfolio">
-              Ver trabalhos <Arrow />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {projects.slice(0, 2).map((project, index) => {
-              const tone = index % 2 === 0 ? "coastal" : "editorial";
-              return (
-                <article className="work-feature" key={project.slug}>
-                  <div className={`work-image ${tone}`}>
-                    <div className="work-overlay">
-                      <span>
-                        {project.industry} · {project.year}
-                      </span>
-                      <h3>{project.client}</h3>
-                    </div>
-                  </div>
-                  <p>{project.services.join(" / ")}</p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
+        <SelectedWorksGrid projects={projects} />
 
         {/* Pricing */}
         <section className="services-section section-wrap" id="pricing">
@@ -359,11 +390,13 @@ export default async function HomePage() {
             </h2>
             <p>Palavras de quem já trabalha connosco e com os nossos sistemas.</p>
           </div>
-          <div className="testimonial-grid">
-            {testimonials.map((t) => (
-              <TestimonialCard key={t.name} quote={t.quote} name={t.name} role={t.role} />
-            ))}
-          </div>
+          <ThreeDTestimonials
+            testimonials={testimonials.map((t) => ({
+              name: t.name,
+              role: t.role,
+              body: t.quote,
+            }))}
+          />
         </section>
       </main>
       <SiteFooter />

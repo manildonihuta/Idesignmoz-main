@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { addToCart } from "@/lib/cart";
 import { trackEvent } from "@/lib/analytics-client";
 import { DomainCard, Button } from "@/components/ui/core";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 type Extension = {
   extension: string;
@@ -248,20 +249,18 @@ export default function DomainSearch() {
           placeholder="yourbusiness"
           autoComplete="off"
         />
-        <select
-          value={extension}
-          onChange={(event) => {
-            setExtension(event.target.value);
-            setResult(null);
-          }}
-          aria-label="Domain extension"
+        <DropdownMenu
+          options={extensions.map((ext) => ({
+            label: ext.extension,
+            onClick: () => {
+              setExtension(ext.extension);
+              setResult(null);
+            },
+          }))}
+          className="bg-[#11111198] border-none text-white h-full px-4 rounded-xl"
         >
-          {extensions.map((ext) => (
-            <option key={ext.extension} value={ext.extension}>
-              {ext.extension}
-            </option>
-          ))}
-        </select>
+          {extension}
+        </DropdownMenu>
         <button className="button" type="submit" disabled={loading}>
           {loading ? "Checking…" : "Search Domain"} <Arrow />
         </button>

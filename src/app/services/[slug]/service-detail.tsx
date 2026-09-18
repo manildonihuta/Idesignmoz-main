@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Service } from "@/lib/services";
 import { CATEGORY_ICON, type CatalogProduct } from "@/lib/catalog-types";
 import { CatalogAddButton } from "@/components/catalog-add-button";
+import { CustomSteps } from "@/components/ui/steps";
 
 export default function ServiceDetailPage({
   service,
@@ -53,14 +54,20 @@ export default function ServiceDetailPage({
       {/* Process */}
       <section className="service-detail-section">
         <h2>Process</h2>
-        <div className="process-grid">
-          {service.process.map((step) => (
-            <div className="process-step" key={step.step}>
-              <span className="service-number">{step.step}</span>
-              <h3>{step.title}</h3>
-              <p>{step.text}</p>
-            </div>
-          ))}
+        <div className="mt-8">
+          <CustomSteps
+            steps={service.process.map((step) => ({
+              title: step.title,
+              description: step.text,
+              content: (
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-paper">{step.title}</p>
+                  <p className="text-sm text-muted leading-relaxed">{step.text}</p>
+                </div>
+              ),
+            }))}
+            defaultStep={0}
+          />
         </div>
       </section>
 

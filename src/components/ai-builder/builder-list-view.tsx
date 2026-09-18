@@ -8,189 +8,236 @@ import type { BuilderSite } from "@/services/ai-builder.service";
 const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
   generating: "A gerar…",
-  ready: "Pronto",
+  ready: "Pronto a publicar",
   failed: "Falhou",
   published: "Publicado",
   archived: "Arquivado",
 };
 
-type ApiSite = BuilderSite;
-
-type CreateForm = {
-  businessName: string;
-  industry: string;
-  domain: string;
-  tagline: string;
-  brief: string;
-  primaryColor: string;
-};
-
-const EMPTY_FORM: CreateForm = {
-  businessName: "",
-  industry: "",
-  domain: "",
-  tagline: "",
-  brief: "",
-  primaryColor: "",
+const STATUS_CLASS: Record<string, string> = {
+  published: "live",
+  generating: "dev",
+  ready: "dev",
+  failed: "off",
 };
 
 export function BuilderListView() {
-  const [sites, setSites] = useState<ApiSite[]>([]);
-  const [form, setForm] = useState<CreateForm>(EMPTY_FORM);
+  const [sites, setSites] = useState<BuilderSite[]>([]);
+  const [quota, setQuota] = useState<{ used: number; limit: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/ai-builder/sites")
       .then((res) => res.json())
       .then((data) => {
-        if (data.ok) setSites(data.sites ?? []);
+        if (data.ok) {
+          setSites(data.sites ?? []);
+          setQuota(data.quota ?? null);
+        } else {
+          setError(data.error ?? "Erro ao carregar os sites.");
+        }
       })
       .catch(() => setError("Não foi possível carregar os sites."))
       .finally(() => setLoading(false));
   }, []);
 
-  function set<K extends keyof CreateForm>(key: K, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
-
-  async function generate() {
-    setError(null);
-    setNotice(null);
-    if (!form.businessName.trim() || !form.brief.trim()) {
-      setError("Indique o nome do negócio e descreva o que faz.");
-      return;
-    }
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/ai-builder/sites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!data.ok) {
-        setError(data.error ?? "Erro ao gerar.");
-        return;
-      }
-      setNotice(`Site gerado com ${data.pages} páginas.`);
-      setForm(EMPTY_FORM);
-      const list = await (await fetch("/api/ai-builder/sites")).json();
-      if (list.ok) setSites(list.sites ?? []);
-    } catch {
-      setError("Erro de ligação. Tente novamente.");
-    } finally {
-      setGenerating(false);
-    }
-  }
+  const canCreate = !quota || quota.used < quota.limit;
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-display-2 text-2xl font-semibold tracking-tight">Criador de websites com IA</h1>
-        <p className="text-muted">Descreva o negócio e gere o site em segundos.</p>
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display-2 text-2xl font-semibold tracking-tight">
+            Website Builder com IA
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Descreva o negócio e a IA cria o site completo — 100% grátis.
+          </p>
+        </div>
+        {canCreate && (
+          <Link className="button button-small" href="/dashboard/ai-builder/new">
+            + Criar novo site
+          </Link>
+        )}
       </div>
 
-      <section className="rounded-xl border border-line bg-surface p-6">
-        <h2 className="mb-1 text-lg font-semibold">Novo site</h2>
-        <p className="mb-5 text-sm text-muted">Todos os textos são gerados em português de Moçambique.</p>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="profile-field">
-            Nome do negócio *
-            <input
-              className="profile-input"
-              value={form.businessName}
-              onChange={(e) => set("businessName", e.target.value)}
-              placeholder="Ex.: Padaria Sabor do Bairro"
-              maxLength={160}
-            />
-          </label>
-          <label className="profile-field">
-            Sector / indústria
-            <input
-              className="profile-input"
-              value={form.industry}
-              onChange={(e) => set("industry", e.target.value)}
-              placeholder="Ex.: Alimentação e bebidas"
-              maxLength={120}
-            />
-          </label>
-          <label className="profile-field">
-            Domínio (opcional)
-            <input
-              className="profile-input"
-              value={form.domain}
-              onChange={(e) => set("domain", e.target.value)}
-              placeholder="Ex.: sabordobairro.co.mz"
-              maxLength={200}
-            />
-          </label>
-          <label className="profile-field">
-            Slogan (opcional)
-            <input
-              className="profile-input"
-              value={form.tagline}
-              onChange={(e) => set("tagline", e.target.value)}
-              placeholder="Ex.: Fresquinho todos os dias"
-              maxLength={300}
-            />
-          </label>
-          <label className="profile-field md:col-span-2">
-            Descreva o seu negócio *
-            <textarea
-              className="profile-input min-h-28"
-              value={form.brief}
-              onChange={(e) => set("brief", e.target.value)}
-              placeholder="O que faz, quem é o público, que serviços/produtos oferece, o que quer comunicar…"
-              maxLength={4000}
-            />
-          </label>
-          <label className="profile-field">
-            Cor principal (opcional)
-            <input
-              className="profile-input"
-              value={form.primaryColor}
-              onChange={(e) => set("primaryColor", e.target.value)}
-              placeholder="Ex.: #c8ff4d"
-              maxLength={9}
-            />
-          </label>
+      {/* Quota + free tier banner */}
+      {quota && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
+          style={{
+            borderColor: "rgba(230,0,35,0.2)",
+            background: "linear-gradient(135deg, #181210 0%, #0f0f0f 100%)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">⚡</span>
+            <div>
+              <p className="text-xs font-bold text-paper">
+                Plano Grátis — {quota.used} / {quota.limit} sites utilizados
+              </p>
+              <p className="text-[11px] text-muted">
+                {quota.used < quota.limit
+                  ? `Ainda pode criar ${quota.limit - quota.used} site${quota.limit - quota.used !== 1 ? "s" : ""} grátis.`
+                  : "Atingiu o limite do plano grátis. Contacte-nos para mais."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* quota bar */}
+            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-2">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(100, (quota.used / quota.limit) * 100)}%`,
+                  background: quota.used >= quota.limit ? "#e60023" : "var(--lime)",
+                }}
+              />
+            </div>
+            {canCreate && (
+              <Link
+                className="outline-button button-small"
+                href="/dashboard/ai-builder/new"
+              >
+                Criar site
+              </Link>
+            )}
+          </div>
         </div>
-        {error ? <p className="mt-4 text-sm text-red-400">{error}</p> : null}
-        {notice ? <p className="mt-4 text-sm text-green-400">{notice}</p> : null}
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <button className="button" type="button" onClick={generate} disabled={generating}>
-            {generating ? "A gerar com IA…" : "Gerar site com IA"}
-          </button>
-        </div>
-      </section>
+      )}
 
+      {/* Error */}
+      {error && (
+        <p className="rounded-lg border border-brand/30 bg-brand/10 px-4 py-3 text-sm text-brand">
+          {error}
+        </p>
+      )}
+
+      {/* Sites list */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted">Os meus sites</h2>
-        {loading && <p className="text-sm text-muted">A carregar…</p>}
-        {!loading && sites.length === 0 && (
-          <div className="rounded-xl border border-line bg-surface p-8 text-sm text-muted">
-            Ainda não gerou nenhum site.
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+          Os meus sites
+        </h2>
+
+        {loading && (
+          <div className="space-y-3">
+            {[1, 2].map((n) => (
+              <div
+                key={n}
+                className="website-card animate-pulse"
+                style={{ opacity: 0.4 }}
+              />
+            ))}
           </div>
         )}
-        {sites.map((site) => (
-          <Link className="website-card block hover:border-brand" href={`/dashboard/ai-builder/${site.id}`} key={site.id}>
-            <div className="website-card-head">
-              <div className="website-favicon">{site.businessName.charAt(0) || "S"}</div>
-              <div>
-                <h3>{site.businessName}</h3>
-                <p className="website-url">
-                  {site.domain ?? "Sem domínio"} · {new Date(site.createdAt).toLocaleDateString("pt-MZ")}
-                </p>
+
+        {!loading && sites.length === 0 && (
+          <div className="rounded-xl border border-dashed border-line bg-surface p-10 text-center">
+            <p className="mb-1 text-lg font-semibold text-paper">Nenhum site criado ainda</p>
+            <p className="mb-6 text-sm text-muted">
+              Crie o seu primeiro website com IA em menos de 1 minuto — gratuitamente.
+            </p>
+            <Link className="button" href="/dashboard/ai-builder/new">
+              ✨ Criar o meu primeiro site
+            </Link>
+          </div>
+        )}
+
+        {sites.map((site) => {
+          const publicUrl = `/s/${site.id}`;
+          return (
+            <div key={site.id} className="website-card group relative">
+              <div className="website-card-head">
+                <div
+                  className="website-favicon"
+                  style={{
+                    background: site.theme?.primaryColor
+                      ? `${site.theme.primaryColor}22`
+                      : undefined,
+                    color: site.theme?.primaryColor ?? "var(--lime)",
+                  }}
+                >
+                  {site.businessName.charAt(0).toUpperCase() || "S"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate">{site.businessName}</h3>
+                  <p className="website-url truncate">
+                    {site.domain
+                      ? site.domain
+                      : site.status === "published"
+                      ? publicUrl
+                      : "Sem domínio personalizado"}
+                    {" · "}
+                    {new Date(site.createdAt).toLocaleDateString("pt-MZ")}
+                  </p>
+                </div>
+                <span className={`site-status ${STATUS_CLASS[site.status] ?? ""}`}>
+                  {STATUS_LABEL[site.status] ?? site.status}
+                </span>
               </div>
-              <span className={`site-status ${site.status === "published" ? "live" : site.status === "generating" || site.status === "ready" ? "dev" : site.status === "failed" ? "off" : ""}`}>
-                {STATUS_LABEL[site.status] ?? site.status}
-              </span>
+
+              {/* meta row */}
+              <div className="website-meta">
+                <div>
+                  <p className="text-muted text-[10px] uppercase tracking-wide" style={{ fontFamily: "var(--font-mono)" }}>
+                    Páginas
+                  </p>
+                  <p>{(site.pages?.length ?? 0) > 0 ? `${site.pages!.length} páginas` : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted text-[10px] uppercase tracking-wide" style={{ fontFamily: "var(--font-mono)" }}>
+                    Domínio
+                  </p>
+                  <p>{site.domain ?? ".co.mz disponível"}</p>
+                </div>
+                <div>
+                  <p className="text-muted text-[10px] uppercase tracking-wide" style={{ fontFamily: "var(--font-mono)" }}>
+                    Publicado
+                  </p>
+                  <p>
+                    {site.publishedAt
+                      ? new Date(site.publishedAt).toLocaleDateString("pt-MZ")
+                      : "Ainda não"}
+                  </p>
+                </div>
+              </div>
+
+              {/* action bar */}
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
+                <Link
+                  className="outline-button button-small"
+                  href={`/dashboard/ai-builder/${site.id}`}
+                >
+                  ✏️ Editar
+                </Link>
+                {site.status === "published" && (
+                  <a
+                    className="outline-button button-small"
+                    href={publicUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    🔗 Ver site
+                  </a>
+                )}
+                {!site.domain && (
+                  <a
+                    className="button button-small"
+                    href={`/domains/search?query=${encodeURIComponent(
+                      site.businessName.toLowerCase().replace(/[^a-z0-9]/g, ""),
+                    )}.co.mz`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    🌐 Registar domínio
+                  </a>
+                )}
+              </div>
             </div>
-          </Link>
-        ))}
+          );
+        })}
       </section>
     </div>
   );

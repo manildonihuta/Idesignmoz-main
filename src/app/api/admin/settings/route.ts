@@ -27,9 +27,6 @@ export async function GET() {
 
 /** Staff-only (settings.manage). Persists one or more settings sections. */
 export async function PUT(request: NextRequest) {
-  const guard = await requirePermissionRoute("settings.manage");
-  if (guard.response) return guard.response;
-
   const ip = clientIp(request);
   const csrf = csrfError(request);
   if (csrf) return csrfFailure();
@@ -41,6 +38,9 @@ export async function PUT(request: NextRequest) {
     ip,
   });
   if (!limited.ok) return rateLimitResponse(limited.retryAfterSec);
+
+  const guard = await requirePermissionRoute("settings.manage");
+  if (guard.response) return guard.response;
 
   let body: unknown;
   try {

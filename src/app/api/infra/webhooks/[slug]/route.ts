@@ -29,25 +29,23 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ slug: 
     if (!rawBody) return Response.json({ ok: false, error: "Corpo vazio." }, { status: 400 });
 
     const secret = await inboundSecretForProvider(slug);
+    if (!secret) {
+      return Response.json({ ok: false, error: "Webhook sem segredo configurado." }, { status: 401 });
+    }
+
     const signature = request.headers.get("x-idesign-signature");
-    if (secret) {
-      const verified = verifyWebhookSignature(signature, rawBody, secret);
-      if (!verified.ok) {
-        const idempotencyKey = deliveryKey(request, rawBody, "rejected");
-        await recordInboundEvent({
-          providerId: provider.id as string,
-          source: slug,
-          event: "signature",
-          payload: null,
-          idempotencyKey,
-          signatureVerified: false,
-        });
-        return Response.json({ ok: false, error: verified.reason ?? "Assinatura inválida." }, { status: 401 });
-      }
-    } else if (!signature) {
-      // No endpoint secret configured for this provider: reject unless the
-      // operator explicitly permits unsigned traffic (not supported).
-      return Response.json({ ok: false, error: "Webhook sem segredo configurado." }, { status: 501 });
+    const verified = verifyWebhookSignature(signature, rawBody, secret);
+    if (!verified.ok) {
+      const idempotencyKey = deliveryKey(request, rawBody, "rejected");
+      await recordInboundEvent({
+        providerId: provider.id as string,
+        source: slug,
+        event: "signature",
+        payload: null,
+        idempotencyKey,
+        signatureVerified: false,
+      });
+      return Response.json({ ok: false, error: verified.reason ?? "Assinatura inválida." }, { status: 401 });
     }
 
     let payload: unknown = null;

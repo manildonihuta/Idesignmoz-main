@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { contactSchema, type ContactInput } from "@/lib/schemas";
+import { SelectDropdown } from "@/components/ui/dropdown-menu";
 
 const SERVICES = ["Design de website", "Identidade de marca", "Alojamento", "Outra necessidade"];
 
@@ -16,11 +17,15 @@ export default function ContactView() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ContactInput>({
     resolver: zodResolver(contactSchema),
     defaultValues: { name: "", email: "", service: "Outra necessidade", message: "" },
   });
+
+  const serviceValue = watch("service");
 
   async function onSubmit(data: ContactInput) {
     setSending(true);
@@ -73,10 +78,12 @@ export default function ContactView() {
             {fieldError(errors.email?.message)}
           </label>
           <label>Como podemos ajudar?
-            <select {...register("service")} defaultValue="">
-              <option value="" disabled>Seleccione um serviço</option>
-              {SERVICES.map((s) => <option key={s}>{s}</option>)}
-            </select>
+            <SelectDropdown
+              options={SERVICES.map((s) => ({ label: s, value: s }))}
+              value={serviceValue ?? ""}
+              onChange={(val) => setValue("service", val as ContactInput["service"], { shouldValidate: true })}
+              placeholder="Seleccione um serviço"
+            />
             {fieldError(errors.service?.message)}
           </label>
           <label>Conte-nos mais

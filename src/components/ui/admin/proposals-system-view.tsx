@@ -12,6 +12,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { card, Empty, Pill, SectionHead, Spinner } from "./views";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import type { Notify } from "./types";
 import {
   PROPOSAL_STATUS_LABEL,
@@ -390,11 +391,16 @@ export function ProposalsSystemView({ notify, company, catalog }: { notify: Noti
         <SectionHead
           title={`Propostas · ${visible.length}`}
           right={
-            <select className="rounded-md border border-line bg-ink px-2 py-1.5 text-sm text-paper outline-none" value={filter} onChange={(e) => setFilter(e.target.value as ProposalStatus | "all")}>
-              {FILTERS.map((f) => (
-                <option key={f} value={f}>{f === "all" ? "Todas" : PROPOSAL_STATUS_LABEL[f as ProposalStatus]}</option>
-              ))}
-            </select>
+            <DropdownMenu
+              options={FILTERS.map((f) => ({
+                label: f === "all" ? "Todas" : PROPOSAL_STATUS_LABEL[f as ProposalStatus],
+                onClick: () => setFilter(f),
+              }))}
+              align="right"
+              className="bg-ink border-line text-paper py-1.5 px-3 rounded-md text-sm"
+            >
+              {filter === "all" ? "Todas" : PROPOSAL_STATUS_LABEL[filter as ProposalStatus]}
+            </DropdownMenu>
           }
         />
         {loading ? (

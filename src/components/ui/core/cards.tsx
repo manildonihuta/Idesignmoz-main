@@ -213,7 +213,7 @@ export function HostingCard({
       )}
     >
       {badge && (
-        <span className="absolute right-4 top-4 rounded-full bg-brand px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-ink">
+        <span className="absolute right-4 top-4 rounded-full bg-brand px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
           {badge}
         </span>
       )}

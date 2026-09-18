@@ -30,6 +30,7 @@ import {
   Wallet,
   Server,
   Mail,
+  Briefcase,
 } from "lucide-react";
 import type { AdminMessage, AdminOrder, AdminDomain, AdminProfile, AdminSubscription, Notice } from "./admin/types";
 import { useAdminData } from "./admin/use-admin-data";
@@ -60,6 +61,7 @@ import { SubscriptionsAdminView } from "./admin/subscriptions-admin-view";
 import { DnsZonesView } from "./admin/dns-admin-views";
 import { AdminHostingAccountsView } from "./admin/hosting-admin-views";
 import { EmailAdminView } from "./admin/email-admin-views";
+import { PortfolioAdminView } from "./admin/portfolio-admin-views";
 import type { CompanyInfo } from "@/lib/site-settings";
 import type { ProposalServiceItem } from "@/lib/proposals";
 
@@ -83,7 +85,7 @@ type DashboardProps = {
   proposalCatalog?: ProposalServiceItem[];
 };
 
-type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "DNS" | "Domínio Admin" | "Email" | "CRM" | "Propostas" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Contas de alojamento" | "Subscrições" | "Provisioning" | "Infraestrutura" | "Cobranças" | "Definições" | "Ajuda";
+type ViewId = "Dashboard" | "Analytics" | "Mensagens" | "Pedidos" | "Domínios" | "DNS" | "Domínio Admin" | "Email" | "CRM" | "Propostas" | "Trabalhos" | "Utilizadores" | "Clientes" | "Produtos" | "Alojamento" | "Contas de alojamento" | "Subscrições" | "Provisioning" | "Infraestrutura" | "Cobranças" | "Definições" | "Ajuda";
 
 const fmtMT = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-PT")} MT`);
 
@@ -98,6 +100,7 @@ const TITLES: Record<ViewId, { title: string; sub: string }> = {
   Email: { title: "Email", sub: "Serviços de email, caixas, uso, DNS e estado." },
   CRM: { title: "CRM interno", sub: "Leads, oportunidades, propostas, projetos e relação com clientes." },
   Propostas: { title: "Propostas", sub: "Cria, envia e acompanha propostas comerciais." },
+  Trabalhos: { title: "Trabalhos seleccionados", sub: "Adiciona, edita e gere os projetos do portfólio no site." },
   Utilizadores: { title: "Utilizadores", sub: "Contas e acessos de administração." },
   Clientes: { title: "Gestão de clientes", sub: "Cria, edita, suspende e consulta clientes." },
   Produtos: { title: "Produtos e preços", sub: "Catálogo, planos, categorias e cupões." },
@@ -172,6 +175,7 @@ export default function DashboardWithCollapsibleSidebar({
     { id: "Produtos", label: "Produtos", Icon: Boxes },
     { id: "CRM", label: "CRM", Icon: HeartHandshake },
     { id: "Propostas", label: "Propostas", Icon: FileSignature },
+    { id: "Trabalhos", label: "Trabalhos", Icon: Briefcase },
     { id: "Domínio Admin", label: "Domínio Admin", Icon: FileKey2 },
     { id: "Email", label: "Email", Icon: Mail, notifs: 0 },
     { id: "Domínios", label: "Domínios", Icon: Globe, notifs: availableDomains },
@@ -256,6 +260,7 @@ export default function DashboardWithCollapsibleSidebar({
                 {active === "Produtos" && <ProductsView notify={notify} />}
                 {active === "CRM" && <CrmView notify={notify} />}
                 {active === "Propostas" && <ProposalsSystemView notify={notify} company={company} catalog={proposalCatalog} />}
+                {active === "Trabalhos" && <PortfolioAdminView notify={notify} />}
                 {active === "Domínio Admin" && <DomainsAdminView notify={notify} />}
                 {active === "Email" && <EmailAdminView notify={notify} />}
                 {active === "Alojamento" && <HostingAdminView notify={notify} />}

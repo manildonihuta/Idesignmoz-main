@@ -52,15 +52,35 @@ export function WebsitesView({ projects }: { projects: ClientProject[] }) {
         ))}
       </div>
 
+      <div className="rounded-xl border border-brand/40 bg-surface p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <span className="site-status live">Plano 0 MT · Criação Grátis</span>
+          <h2 className="font-display-2 text-lg font-semibold tracking-tight text-paper">
+            Crie um novo site com IA em menos de 1 minuto
+          </h2>
+          <p className="text-sm text-muted">
+            Gere o seu site grátis no Website Builder e conecte o seu domínio personalizado (.co.mz, .com) a qualquer momento.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link className="button button-small" href="/dashboard/ai-builder/new">
+            Criar Site Grátis ↗
+          </Link>
+          <Link className="outline-button outline-button-small" href="/domains/search">
+            Registar Domínio (.co.mz) ↗
+          </Link>
+        </div>
+      </div>
+
       <div className="email-plan-actions">
         <Link className="button" href="/dashboard/ai-builder">
-          Criar site com IA ↗
+          Ver Meus Sites IA ↗
         </Link>
-        <Link className="outline-button" href="/services/web-development">
-          Estender plano ↗
+        <Link className="outline-button" href="/domains/search">
+          Pesquisar Domínio ↗
         </Link>
         <Link className="outline-button" href="/dashboard/projects">
-          Ver projeto ↗
+          Ver Projetos ↗
         </Link>
       </div>
     </div>

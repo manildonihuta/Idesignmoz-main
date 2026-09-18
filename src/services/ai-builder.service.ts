@@ -5,7 +5,7 @@ import type { AuthContext } from "@/lib/client";
 import { fail, type ServiceResult } from "@/services/result";
 import { isAiConfigured, chatJson, AiError } from "@/lib/ai/provider";
 import { buildSitePrompt, buildRewriteSectionPrompt, buildAssistantPrompt } from "@/lib/ai/builder-prompt";
-import { getAiTemplate } from "@/lib/ai-templates";
+import { getAiTemplate, createFallbackSitePayload } from "@/lib/ai-templates";
 import {
   parseSitePayload,
   parseSectionPayload,
@@ -283,36 +283,62 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
   if (!siteId) return fail(500, "Não foi possível criar o site.");
 
   let payload: SitePayload;
-  try {
-    const aiTemplate = input.templateId ? getAiTemplate(input.templateId) : null;
-    const raw = await chatJson<unknown>(
-      buildSitePrompt({
+  if (isAiConfigured()) {
+    try {
+      const aiTemplate = input.templateId ? getAiTemplate(input.templateId) : null;
+      const raw = await chatJson<unknown>(
+        buildSitePrompt({
+          businessName,
+          industry,
+          domain,
+          tagline,
+          brief,
+          primaryColor: forcedPrimaryColor,
+          accentColor,
+          colorPreference,
+          style,
+          typography,
+          images: aiTemplate?.images,
+        }),
+      );
+      const parsed = parseSitePayload(raw);
+      if (parsed.ok) {
+        payload = parsed.site;
+      } else {
+        payload = createFallbackSitePayload({
+          businessName,
+          industry,
+          tagline,
+          brief,
+          templateId: input.templateId,
+          primaryColor: forcedPrimaryColor,
+          accentColor,
+          typography,
+        });
+      }
+    } catch {
+      payload = createFallbackSitePayload({
         businessName,
         industry,
-        domain,
         tagline,
         brief,
+        templateId: input.templateId,
         primaryColor: forcedPrimaryColor,
         accentColor,
-        colorPreference,
-        style,
         typography,
-        images: aiTemplate?.images,
-      }),
-    );
-    const parsed = parseSitePayload(raw);
-    if (!parsed.ok) throw new AiError("invalid_response", parsed.error);
-    payload = parsed.site;
-  } catch (err) {
-    await markFailed(siteId!, err);
-    await logAudit({
-      action: AUDIT.AI_SITE_GENERATION_FAILED,
-      entity: "builder_site",
-      entityId: siteId!,
-      actorId: ctx.userId,
-      meta: { businessName },
+      });
+    }
+  } else {
+    payload = createFallbackSitePayload({
+      businessName,
+      industry,
+      tagline,
+      brief,
+      templateId: input.templateId,
+      primaryColor: forcedPrimaryColor,
+      accentColor,
+      typography,
     });
-    return fail(503, err instanceof AiError ? err.message : "A geração falhou. Tente novamente mais tarde.");
   }
 
   const pagesJson = payload.pages.map((p, index) => ({

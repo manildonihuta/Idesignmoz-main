@@ -202,3 +202,157 @@ export function getAiTemplate(id: string | undefined | null): AiTemplate | null 
   if (!id) return null;
   return AI_TEMPLATES.find((t) => t.id === id) ?? null;
 }
+
+export function createFallbackSitePayload(input: {
+  businessName: string;
+  industry?: string | null;
+  tagline?: string | null;
+  brief: string;
+  templateId?: string | null;
+  primaryColor?: string;
+  accentColor?: string;
+  typography?: "sans" | "display" | "mono";
+}) {
+  const template = input.templateId ? getAiTemplate(input.templateId) : null;
+  const name = input.businessName || "Empresa Moçambicana";
+  const tagline = input.tagline || template?.description || "Soluções de Excelência e Inovação em Moçambique";
+  const primary = input.primaryColor || template?.colors.from || "#E31E24";
+  const accent = input.accentColor || template?.colors.accent || "#7C3AED";
+  const heroImage = template?.images.hero || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80";
+  const aboutImage = template?.images.about || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80";
+  const galleryImages = template?.images.gallery || [
+    "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=900&q=80",
+    "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80",
+    "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80",
+  ];
+
+  return {
+    name,
+    tagline,
+    theme: {
+      primaryColor: primary,
+      accentColor: accent,
+      mode: "light" as const,
+      font: input.typography || "sans" as const,
+    },
+    seo: {
+      title: `${name} — ${tagline}`,
+      description: input.brief.slice(0, 160) || `Bem-vindo a ${name}. Excelência e qualidade em Moçambique.`,
+    },
+    pages: [
+      {
+        slug: "inicio",
+        title: "Início",
+        navLabel: "Início",
+        sections: [
+          {
+            type: "hero" as const,
+            id: "sec-1",
+            headline: `Transforme o seu Negócio com a ${name}`,
+            subheadline: tagline,
+            align: "left" as const,
+            image: heroImage,
+            cta: { label: "Falar Connosco", href: "#contacto" },
+          },
+          {
+            type: "about" as const,
+            id: "sec-2",
+            heading: `Sobre a ${name}`,
+            body: input.brief.length > 30 ? input.brief : `A ${name} é uma referência no mercado moçambicano, dedicada a oferecer serviços de alta qualidade com foco total no cliente.`,
+            bullets: [
+              "Equipa experiente e profissional",
+              "Atendimento personalizado em Maputo e todo o país",
+              "Garantia de eficiência e rigor em cada projeto",
+            ],
+            image: aboutImage,
+          },
+          {
+            type: "services" as const,
+            id: "sec-3",
+            heading: "Nossos Serviços em Destaque",
+            intro: "Oferecemos soluções integradas adaptadas às necessidades do mercado moçambicano.",
+            items: [
+              { name: "Consultoria & Estratégia", description: "Acompanhamento profissional focado em resultados rápidos e sustentáveis." },
+              { name: "Gestão & Execução", description: "Planeamento e implementação de projetos com padrões de excelência internacional." },
+              { name: "Suporte Personalizado", description: "Assistência contínua e soluções feitas à medida das suas necessidades." },
+            ],
+          },
+          {
+            type: "stats" as const,
+            id: "sec-4",
+            heading: "Resultados que Falam por Nós",
+            items: [
+              { value: "100+", label: "Clientes Satisfeitos" },
+              { value: "5+", label: "Anos de Experiência" },
+              { value: "24/7", label: "Suporte Dedicado" },
+            ],
+          },
+          {
+            type: "testimonials" as const,
+            id: "sec-5",
+            heading: "O que Dizem os Nossos Clientes",
+            items: [
+              { quote: `Trabalhar com a ${name} foi uma excelente decisão. Profissionalismo de topo em Moçambique!`, author: "Armando Sitae", role: "Empresário em Maputo" },
+              { quote: "Entrega rápida, serviço impecável e excelente comunicação do início ao fim.", author: "Sérgio Mabunda", role: "Gestor de Projetos" },
+            ],
+          },
+          {
+            type: "contact" as const,
+            id: "sec-6",
+            heading: "Fale Connosco Hoje",
+            email: "contacto@idesignmoz.co.mz",
+            phone: "+258 84 000 0000",
+            address: "Av. Julius Nyerere, Maputo, Moçambique",
+            note: "Responderemos à sua mensagem em menos de 24 horas úteis.",
+          },
+          {
+            type: "footer" as const,
+            id: "sec-7",
+            text: `© ${new Date().getFullYear()} ${name}. Todos os direitos reservados.`,
+          },
+        ],
+      },
+      {
+        slug: "servicos",
+        title: "Serviços",
+        navLabel: "Serviços",
+        sections: [
+          {
+            type: "hero" as const,
+            id: "sec-1",
+            headline: `Serviços da ${name}`,
+            subheadline: "Descubra como podemos impulsionar o seu sucesso.",
+            align: "center" as const,
+          },
+          {
+            type: "features" as const,
+            id: "sec-2",
+            heading: "Porquê Escolher os Nossos Serviços",
+            items: [
+              { title: "Rigor Profissional", text: "Processos alinhados com as melhores práticas de mercado." },
+              { title: "Preço Justo", text: "Propostas transparentes sem custos ocultos." },
+              { title: "Inovação Constante", text: "Tecnologia e métodos modernos ao serviço do seu crescimento." },
+            ],
+          },
+          {
+            type: "gallery" as const,
+            id: "sec-3",
+            heading: "Alguns dos Nossos Trabalhos",
+            items: galleryImages.map((img, i) => ({
+              label: `Projeto ${i + 1}`,
+              caption: "Trabalho realizado com padrão de excelência.",
+              image: img,
+            })),
+          },
+          {
+            type: "cta" as const,
+            id: "sec-4",
+            headline: "Pronto para Começar?",
+            sub: "Entre em contacto com a nossa equipa e solicite uma proposta sem compromisso.",
+            button: { label: "Pedir Proposta", href: "#contacto" },
+          },
+        ],
+      },
+    ],
+  };
+}

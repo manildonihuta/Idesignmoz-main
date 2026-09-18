@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import type { WebsitePackage } from "@/lib/website-packages";
 import { formatMZN } from "@/lib/currency";
+import { SelectDropdown } from "@/components/ui/dropdown-menu";
 
 type FormState = {
   name: string;
@@ -118,16 +119,12 @@ export function WebsiteBriefForm({ pkg }: { pkg: WebsitePackage }) {
         </label>
         <label className="checkout-field checkout-field-wide">
           Prazo desejado
-          <select
+          <SelectDropdown
+            options={TIMELINES}
             value={form.timeline}
-            onChange={(event) => set("timeline", event.target.value)}
-          >
-            {TIMELINES.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => set("timeline", val)}
+            placeholder="Seleccione um prazo"
+          />
         </label>
         <label className="checkout-field checkout-field-wide">
           Descreva o projeto *

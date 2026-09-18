@@ -446,7 +446,7 @@ function LockTab({ domain, onMutate, busy }: { domain: ClientDomain; onMutate: (
         </div>
         <button
           className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold ${
-            locked ? "bg-surface-2 text-paper" : "bg-brand text-ink"
+            locked ? "bg-surface-2 text-paper" : "bg-brand text-white"
           }`}
           type="button"
           disabled={busy}
@@ -552,7 +552,7 @@ function AutoRenewTab({ domain, onMutate, busy }: { domain: ClientDomain; onMuta
         </div>
         <button
           className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold ${
-            autoRenew ? "bg-surface-2 text-paper" : "bg-brand text-ink"
+            autoRenew ? "bg-surface-2 text-paper" : "bg-brand text-white"
           }`}
           type="button"
           disabled={busy}

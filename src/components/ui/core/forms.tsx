@@ -70,7 +70,7 @@ export function SearchBar({
 /* ------------------------------------------------------------------ */
 
 export const inputVariants = cva(
-  "w-full rounded-lg border border-line bg-surface-2 text-paper outline-none transition-colors placeholder:text-muted focus:border-brand",
+  "w-full rounded-lg border border-line bg-surface-2 text-paper outline-none focus:outline-none focus:ring-0 transition-colors placeholder:text-muted",
   {
     variants: {
       size: {
@@ -101,7 +101,7 @@ export function TextField({ label, error, hint, help, size, className, id, ...pr
           {label}
         </label>
       )}
-      <input id={inputId} className={cx(inputVariants({ size }), error && "border-brand/70 focus:border-brand")} {...props} />
+      <input id={inputId} className={cx(inputVariants({ size }), error && "border-brand/70")} {...props} />
       {help && !error && <p className="text-xs text-muted">{help}</p>}
       {error && <p className="text-xs text-brand">{error}</p>}
       {hint && !error && <p className="text-xs text-muted">{hint}</p>}

@@ -19,6 +19,7 @@ export type GeneralSettings = {
   tagline: string;
   supportEmail: string;
   supportPhone: string;
+  supportWhatsApp: string;
   address: string;
   city: string;
   country: string;
@@ -31,6 +32,7 @@ export const DEFAULT_GENERAL: GeneralSettings = {
   tagline: "Websites, alojamento e design em Moçambique",
   supportEmail: "info@idesignmoz.com",
   supportPhone: "+258 84 000 0000",
+  supportWhatsApp: "+258840000000",
   address: "",
   city: "Maputo",
   country: "Moçambique",

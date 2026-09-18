@@ -135,7 +135,7 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [view, setView] = useState<"edit" | "preview">("edit");
-  const [leftTab, setLeftTab] = useState<"pages" | "sections">("sections");
+  const [leftTab, setLeftTab] = useState<"sections" | "pages" | "theme">("sections");
   const [device, setDevice] = useState<(typeof DEVICES)[number]["id"]>("desktop");
   const [zoom, setZoom] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -146,18 +146,92 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
   const [regenerating, setRegenerating] = useState<Record<string, string>>({});
   const [rewriteInput, setRewriteInput] = useState<Record<string, string>>({});
 
+  // History buffer for Undo/Redo
+  const [history, setHistory] = useState<ParsedSection[][]>([]);
+  const [redoStack, setRedoStack] = useState<ParsedSection[][]>([]);
+
   const page = pages[activeIndex] ?? pages[0];
 
-  function commitSections(next: ParsedSection[]): boolean {
+  function commitSections(next: ParsedSection[], pushHistory = true): boolean {
     const parsed = parseSectionsInput(next);
     if (!parsed.ok) {
       setError(parsed.error);
       return false;
     }
     setError(null);
+    if (pushHistory && page) {
+      setHistory((prev) => [...prev.slice(-20), page.sections]);
+      setRedoStack([]);
+    }
     setPages((pages) => pages.map((p) => (p.id === page.id ? { ...p, sections: parsed.sections } : p)));
     setNotice("Alterações por guardar.");
     return true;
+  }
+
+  function handleUndo() {
+    if (history.length === 0 || !page) return;
+    const previous = history[history.length - 1];
+    setRedoStack((prev) => [...prev, page.sections]);
+    setHistory((prev) => prev.slice(0, -1));
+    setPages((pages) => pages.map((p) => (p.id === page.id ? { ...p, sections: previous } : p)));
+    setNotice("Desfeito.");
+  }
+
+  function handleRedo() {
+    if (redoStack.length === 0 || !page) return;
+    const next = redoStack[redoStack.length - 1];
+    setHistory((prev) => [...prev, page.sections]);
+    setRedoStack((prev) => prev.slice(0, -1));
+    setPages((pages) => pages.map((p) => (p.id === page.id ? { ...p, sections: next } : p)));
+    setNotice("Refeito.");
+  }
+
+  function duplicateSection(sectionIndex: number) {
+    if (!page) return;
+    const target = page.sections[sectionIndex];
+    if (!target) return;
+    const clone: ParsedSection = { ...target, id: `sec-${Date.now()}` };
+    const next = [...page.sections];
+    next.splice(sectionIndex + 1, 0, clone);
+    commitSections(next);
+    setNotice("Secção duplicada.");
+  }
+
+  function addSectionPreset(type: Section["type"]) {
+    if (!page) return;
+    const id = `sec-${Date.now()}`;
+    let newSection: ParsedSection;
+    switch (type) {
+      case "hero":
+        newSection = { type: "hero", id, headline: "Novo Destaque", subheadline: "Insira o seu slogan", cta: { label: "Saber Mais", href: "#" } };
+        break;
+      case "about":
+        newSection = { type: "about", id, heading: "Sobre Nós", body: "Descreva a história do seu negócio." };
+        break;
+      case "features":
+        newSection = { type: "features", id, heading: "Vantagens", items: [{ title: "Diferencial 1", text: "Descrição." }] };
+        break;
+      case "services":
+        newSection = { type: "services", id, heading: "Nossos Serviços", items: [{ name: "Serviço 1", description: "Descrição." }] };
+        break;
+      case "testimonials":
+        newSection = { type: "testimonials", id, heading: "Depoimentos", items: [{ quote: "Excelente serviço!", author: "Cliente Satisfeito" }] };
+        break;
+      case "faq":
+        newSection = { type: "faq", id, heading: "Perguntas Frequentes", items: [{ q: "Como funciona?", a: "Explicação clara." }] };
+        break;
+      case "contact":
+        newSection = { type: "contact", id, heading: "Contactos", email: "contacto@exemplo.co.mz", phone: "+258 84 000 0000" };
+        break;
+      case "cta":
+        newSection = { type: "cta", id, headline: "Pronto para Começar?", button: { label: "Falar Connosco", href: "#contacto" } };
+        break;
+      default:
+        newSection = { type: "text", id, heading: "Título", body: "Escreva aqui o seu texto." };
+    }
+    commitSections([...page.sections, newSection]);
+    setFocusedId(id);
+    setNotice("Nova secção adicionada.");
   }
 
   function selectPage(index: number) {
@@ -378,6 +452,28 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Undo / Redo Buttons */}
+          <div className="flex items-center gap-1 rounded-lg border border-[var(--ai-border)] p-1">
+            <button
+              type="button"
+              className="rounded px-2.5 py-1 text-xs font-bold text-[var(--ai-ink)] hover:bg-[var(--ai-surface-2)] disabled:opacity-30"
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              title="Desfazer (Ctrl+Z)"
+            >
+              ↩ Desfazer
+            </button>
+            <button
+              type="button"
+              className="rounded px-2.5 py-1 text-xs font-bold text-[var(--ai-ink)] hover:bg-[var(--ai-surface-2)] disabled:opacity-30"
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              title="Refazer (Ctrl+Y)"
+            >
+              ↪ Refazer
+            </button>
+          </div>
+
           <button
             className="ai-btn ai-btn-ghost !px-4 !py-2 text-xs"
             type="button"
@@ -405,6 +501,30 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
       {error ? <p className="rounded-lg border border-[#5c2c36] bg-[#2a1f1f] px-4 py-3 text-sm text-[#f26d6d]">{error}</p> : null}
       {notice ? <p className="rounded-lg border border-[#2c4a32] bg-[#1f2a20] px-4 py-3 text-sm text-[#7fd88f]">{notice}</p> : null}
 
+      {/* Domain Upsell Banner — shown when published */}
+      {site.status === "published" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--ai-brand-soft)]/40 bg-[var(--ai-surface-2)] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">🌐</span>
+            <div>
+              <p className="text-xs font-bold text-[var(--ai-ink)]">Quer um endereço profissional?</p>
+              <p className="text-[11px] text-[var(--ai-muted)]">
+                O seu site está em <code className="text-[var(--ai-ink)]">{publicUrl}</code> — registe um domínio
+                {" "}<b className="text-[var(--ai-ink)]">.co.mz</b> ou <b className="text-[var(--ai-ink)]">.com</b> a partir de 900 MT/ano.
+              </p>
+            </div>
+          </div>
+          <a
+            className="ai-btn !py-1.5 !px-3 text-xs whitespace-nowrap"
+            href={`/domains/search?query=${encodeURIComponent(site.businessName.toLowerCase().replace(/[^a-z0-9]/g, ""))}.co.mz`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Registar Domínio ↗
+          </a>
+        </div>
+      )}
+
       {view === "preview" ? (
         <div className="ai-card overflow-hidden">
           {page ? (
@@ -421,40 +541,104 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
             <div className="ai-card ai-card-pad text-sm text-[var(--ai-muted)]">Sem páginas geradas.</div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_320px]">
-              {/* ---- LEFT: Pages / Sections ---- */}
+              {/* ---- LEFT: Pages / Sections / Theme ---- */}
               <aside className="ai-card flex flex-col overflow-hidden">
                 <div className="flex border-b border-[var(--ai-border)]">
-                  {(["sections", "pages"] as const).map((tab) => (
+                  {(["sections", "pages", "theme"] as const).map((tab) => (
                     <button
                       key={tab}
                       type="button"
-                      className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors ${
+                      className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                         leftTab === tab ? "ai-gradient-bg text-white" : "text-[var(--ai-muted)] hover:text-[var(--ai-ink)]"
                       }`}
                       onClick={() => setLeftTab(tab)}
                     >
-                      {tab === "sections" ? "Secções" : "Páginas"}
+                      {tab === "sections" ? "Secções" : tab === "pages" ? "Páginas" : "Tema"}
                     </button>
                   ))}
                 </div>
 
-                <div className="max-h-[70vh] flex-1 space-y-1 overflow-y-auto p-3">
-                  {leftTab === "pages"
-                    ? pages.map((p, index) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                            index === activeIndex
-                              ? "ai-gradient-bg text-white"
-                              : "text-[var(--ai-ink)] hover:bg-[var(--ai-surface-2)]"
-                          }`}
-                          onClick={() => selectPage(index)}
-                        >
-                          {p.navLabel ?? p.title}
-                        </button>
-                      ))
-                    : page.sections.map((section, index) => (
+                <div className="max-h-[70vh] flex-1 space-y-2 overflow-y-auto p-3">
+                  {leftTab === "pages" &&
+                    pages.map((p, index) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                          index === activeIndex
+                            ? "ai-gradient-bg text-white"
+                            : "text-[var(--ai-ink)] hover:bg-[var(--ai-surface-2)]"
+                        }`}
+                        onClick={() => selectPage(index)}
+                      >
+                        {p.navLabel ?? p.title}
+                      </button>
+                    ))}
+
+                  {leftTab === "theme" && (
+                    <div className="space-y-4 text-xs">
+                      <div>
+                        <span className="mb-1 block font-bold text-[var(--ai-ink)]">Cor Principal</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            className="h-8 w-10 cursor-pointer rounded border border-[var(--ai-border)] bg-transparent"
+                            value={site.theme.primaryColor || "#E31E24"}
+                            onChange={(e) => void patchSite({ primaryColor: e.target.value })}
+                          />
+                          <input
+                            className="ai-input !py-1 text-xs font-mono"
+                            value={site.theme.primaryColor || "#E31E24"}
+                            onChange={(e) => void patchSite({ primaryColor: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="mb-1 block font-bold text-[var(--ai-ink)]">Tipografia</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(["sans", "display", "mono"] as const).map((f) => (
+                            <button
+                              key={f}
+                              type="button"
+                              className={`rounded px-2 py-1 text-xs font-bold capitalize ${
+                                (site.theme.font ?? "sans") === f
+                                  ? "ai-gradient-bg text-white"
+                                  : "border border-[var(--ai-border)] text-[var(--ai-muted)] hover:text-[var(--ai-ink)]"
+                              }`}
+                              onClick={() => void patchSite({ typography: f })}
+                            >
+                              {f}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="mb-1 block font-bold text-[var(--ai-ink)]">Modo Visual</span>
+                        <div className="grid grid-cols-2 gap-1">
+                          {(["light", "dark"] as const).map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              className={`rounded px-2 py-1 text-xs font-bold capitalize ${
+                                (site.theme.mode ?? "light") === m
+                                  ? "ai-gradient-bg text-white"
+                                  : "border border-[var(--ai-border)] text-[var(--ai-muted)] hover:text-[var(--ai-ink)]"
+                              }`}
+                              onClick={() => void patchSite({ mode: m })}
+                            >
+                              {m === "light" ? "☀️ Claro" : "🌙 Escuro"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {leftTab === "sections" && (
+                    <>
+                      {page.sections.map((section, index) => (
                         <div
                           key={section.id}
                           className={`group w-full rounded-lg border px-2.5 py-2 transition-colors cursor-pointer ${
@@ -469,7 +653,18 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                               <span className="mr-1.5 text-[10px] text-[var(--ai-muted)]">{index + 1}</span>
                               {SECTION_LABEL[section.type]}
                             </span>
-                            <span className="flex gap-0.5 text-xs opacity-0 transition-opacity group-hover:opacity-100">
+                            <span className="flex gap-1 text-xs opacity-0 transition-opacity group-hover:opacity-100">
+                              <button
+                                type="button"
+                                className="px-1 text-[var(--ai-muted)] hover:text-[var(--ai-ink)]"
+                                title="Duplicar secção"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  duplicateSection(index);
+                                }}
+                              >
+                                📋
+                              </button>
                               <button
                                 type="button"
                                 className="px-1 text-[var(--ai-muted)] hover:text-[var(--ai-ink)]"
@@ -507,10 +702,29 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                           </div>
                         </div>
                       ))}
+
+                      {/* Add Preset Section Quick Buttons */}
+                      <div className="pt-3 mt-2 border-t border-[var(--ai-border)]">
+                        <p className="text-[10px] font-bold text-[var(--ai-muted)] mb-1.5 uppercase tracking-wider">Adicionar Secção</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {(["hero", "services", "features", "about", "testimonials", "faq", "contact", "cta"] as const).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              className="rounded border border-[var(--ai-border)] px-2 py-1 text-[11px] text-[var(--ai-ink)] hover:bg-[var(--ai-surface-2)] text-left truncate"
+                              onClick={() => addSectionPreset(t)}
+                            >
+                              + {SECTION_LABEL[t]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </aside>
 
-              {/* ---- CENTER: canvas with device + zoom ---- */}
+              {/* ---- CENTER: canvas with device frame + zoom ---- */}
               <section className="min-w-0 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1 rounded-full border border-[var(--ai-border)] p-1">
@@ -518,7 +732,7 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                       <button
                         key={d.id}
                         type="button"
-                        className={`rounded-full px-2.5 py-1 text-sm ${device === d.id ? "ai-gradient-bg" : "text-[var(--ai-muted)] hover:text-[var(--ai-ink)]"}`}
+                        className={`rounded-full px-2.5 py-1 text-sm ${device === d.id ? "ai-gradient-bg text-white" : "text-[var(--ai-muted)] hover:text-[var(--ai-ink)]"}`}
                         title={d.title}
                         onClick={() => setDevice(d.id)}
                       >
@@ -541,8 +755,19 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                   </div>
                 </div>
 
-                <div className="ai-card overflow-auto bg-[#0b0c0a] p-3">
-                  <div className="rounded-lg shadow-2xl" style={{ width: (device === "desktop" ? 1280 : device === "tablet" ? DEVICES[1].width : DEVICES[2].width) * zoom }}>
+                <div className="ai-card overflow-auto bg-[#0b0c0a] p-4 flex justify-center">
+                  <div
+                    className={`transition-all duration-300 ${
+                      device === "mobile"
+                        ? "rounded-[36px] border-[10px] border-zinc-800 shadow-2xl overflow-hidden"
+                        : device === "tablet"
+                        ? "rounded-[24px] border-[12px] border-zinc-800 shadow-2xl overflow-hidden"
+                        : "rounded-lg shadow-2xl overflow-hidden"
+                    }`}
+                    style={{
+                      width: (device === "desktop" ? 1280 : device === "tablet" ? DEVICES[1].width : DEVICES[2].width) * zoom,
+                    }}
+                  >
                     <div
                       style={{
                         width: device === "desktop" ? 1280 : device === "tablet" ? DEVICES[1].width : DEVICES[2].width,
@@ -731,26 +956,69 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
 
       {publishOpen ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-black/70 p-4" role="dialog" aria-modal="true">
-          <div className="ai-card ai-card-pad w-full max-w-md text-center">
-            <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#3fbf5a]/20 text-3xl">✅</span>
-            <h2 className="ai-display mt-4 text-2xl">O seu website está online!</h2>
-            <p className="mt-2 text-sm text-[var(--ai-muted)]">
-              O site de <b className="text-[var(--ai-ink)]">{site.businessName}</b> já está acessível ao público.
-            </p>
-            <div className="mt-5 rounded-xl border border-[var(--ai-border)] bg-[var(--ai-surface-2)] px-4 py-3 font-mono text-sm">
-              {publicUrl}
+          <div className="ai-card ai-card-pad w-full max-w-lg text-center space-y-4">
+            <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#3fbf5a]/20 text-3xl">🎉</span>
+            <div className="space-y-1">
+              <span className="inline-block rounded-full bg-[#3fbf5a]/20 px-3 py-1 text-xs font-bold text-[#3fbf5a]">
+                ⚡ Publicado Grátis (Plano 0 MT)
+              </span>
+              <h2 className="ai-display text-2xl">O seu website está online!</h2>
+              <p className="text-sm text-[var(--ai-muted)]">
+                O site de <b className="text-[var(--ai-ink)]">{site.businessName}</b> já está acessível gratuitamente ao público.
+              </p>
             </div>
-            <div className="mt-4 rounded-xl border border-[var(--ai-border)] bg-[var(--ai-surface-2)] px-4 py-3 text-left text-xs leading-relaxed text-[var(--ai-muted)]">
-              💡 Para usar um domínio próprio (ex.: {" "}
-              <b className="text-[var(--ai-ink)]">sabordobairro.co.mz</b>), registe o domínio e faça o apontamento no menu{" "}
-              <b className="text-[var(--ai-ink)]">Domínios</b>.
+
+            <div className="rounded-xl border border-[var(--ai-border)] bg-[var(--ai-surface-2)] p-4 text-left space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-[var(--ai-muted)]">Endereço Grátis Ativo</span>
+              <div className="flex items-center justify-between gap-2">
+                <code className="truncate font-mono text-sm font-semibold text-[var(--ai-ink)]">{publicUrl}</code>
+                <a className="ai-btn !py-1.5 !px-3 text-xs" href={publicUrl} target="_blank" rel="noreferrer">
+                  Abrir ↗
+                </a>
+              </div>
             </div>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <a className="ai-btn" href={publicUrl} target="_blank" rel="noreferrer">
-                Ver online ↗
+
+            {/* High Converting Custom Domain Upsell */}
+            <div className="rounded-2xl border border-[var(--ai-brand-soft)]/50 bg-gradient-to-b from-[var(--ai-surface-2)] to-black/40 p-5 text-left space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌐</span>
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--ai-ink)]">Adicione o seu Domínio Personalizado (.co.mz)</h3>
+                  <p className="text-xs text-[var(--ai-muted)]">Transmita 100% de confiança aos seus clientes com um endereço próprio.</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  className="ai-input flex-1 !py-2 text-sm"
+                  placeholder="Ex.: sabordobairro.co.mz"
+                  defaultValue={site.domain || `${site.businessName.toLowerCase().replace(/[^a-z0-9]/g, "")}.co.mz`}
+                  id="modalDomainQuery"
+                />
+                <button
+                  type="button"
+                  className="ai-btn !py-2 text-xs whitespace-nowrap"
+                  onClick={() => {
+                    const el = document.getElementById("modalDomainQuery") as HTMLInputElement | null;
+                    const q = el?.value.trim() || site.businessName;
+                    window.open(`/domains/search?query=${encodeURIComponent(q)}`, "_blank");
+                  }}
+                >
+                  Pesquisar Domínio ↗
+                </button>
+              </div>
+              <p className="text-[11px] text-[var(--ai-muted)]">
+                Domínios <b className="text-[var(--ai-ink)]">.co.mz</b> a partir de 900 MT/ano · Configuração DNS automática!
+              </p>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
+              <a className="ai-btn ai-btn-ghost" href={publicUrl} target="_blank" rel="noreferrer">
+                Ver Site Online ↗
               </a>
               <button className="ai-btn ai-btn-ghost" type="button" onClick={() => setPublishOpen(false)}>
-                Continuar a editar
+                Continuar a Editar
               </button>
             </div>
           </div>

@@ -38,6 +38,12 @@ const track: NavItem[] = [
         title: "Websites",
         items: [
           {
+            label: "Website Builder (Grátis)",
+            description: "Crie com IA em 1 minuto · 0 MT",
+            icon: Sparkles,
+            href: "/websites",
+          },
+          {
             label: "Pacotes de Websites",
             description: "Sites prontos a lançar",
             icon: LayoutTemplate,
@@ -156,6 +162,9 @@ export function SiteHeader({ anchors = false }: SiteHeaderProps) {
       right={(onNavigate) => (
         <>
           <HeaderAuth onNavigate={onNavigate} />
+          <Link className="outline-button button-small" href="/websites" onClick={onNavigate}>
+            Site Grátis com IA <Arrow />
+          </Link>
           <Link className="button button-small nav-cta" href={ctaHref} onClick={onNavigate}>
             Começar <Arrow />
           </Link>

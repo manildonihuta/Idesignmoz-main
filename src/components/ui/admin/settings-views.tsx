@@ -135,6 +135,9 @@ function GeneralEditor({ value, onChange }: EditorProps<"general">) {
       <Field label="Telefone de apoio">
         <TextInput value={value.supportPhone} onChange={(v) => set({ supportPhone: v })} />
       </Field>
+      <Field label="WhatsApp de suporte (incluindo +código país)" hint="Ex.: +258841234567 — usado no botão flutuante de WhatsApp.">
+        <TextInput value={(value as typeof value & { supportWhatsApp?: string }).supportWhatsApp ?? ""} onChange={(v) => set({ supportWhatsApp: v } as Partial<typeof value>)} placeholder="+258841234567" />
+      </Field>
       <Field label="Morada" colSpan>
         <TextInput value={value.address} onChange={(v) => set({ address: v })} />
       </Field>
@@ -154,37 +157,235 @@ function GeneralEditor({ value, onChange }: EditorProps<"general">) {
   );
 }
 
+/* ----------------------------- Asset Upload Primitive ----------------------------- */
+
+function FileUploadField({
+  label,
+  value,
+  onChange,
+  kind,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  kind: "logo" | "favicon" | "brand";
+  hint?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("kind", kind);
+
+      const res = await fetch("/api/admin/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
+      if (!res.ok || !data.ok || !data.url) {
+        throw new Error(data.error || "Falha ao carregar o ficheiro.");
+      }
+
+      onChange(data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro no carregamento.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-line bg-ink p-4 md:col-span-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className="text-xs font-semibold text-paper">{label}</label>
+        {hint && <span className="text-[11px] text-muted">{hint}</span>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-2 p-2">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt={label} className="max-h-full max-w-full object-contain" />
+          ) : (
+            <span className="text-xs text-muted">Sem imagem</span>
+          )}
+        </div>
+
+        <div className="flex flex-1 flex-col gap-2 min-w-[200px]">
+          <div className="flex gap-2">
+            <label className="cursor-pointer rounded-md border border-brand/40 bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/20">
+              {uploading ? "A carregar..." : value ? "Substituir ficheiro" : "Carregar ficheiro"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon"
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => void handleFileChange(e)}
+              />
+            </label>
+
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs text-muted transition-colors hover:text-paper"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+
+          <TextInput
+            value={value}
+            onChange={onChange}
+            placeholder="Ou introduza o URL público da imagem..."
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-brand">{error}</p>}
+    </div>
+  );
+}
+
+/* ----------------------------- Brand Preview Card ----------------------------- */
+
+function BrandPreviewCard({ branding }: { branding: SiteSettings["branding"] }) {
+  return (
+    <div className="mt-6 rounded-xl border border-line bg-ink p-5 md:col-span-2">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+        Pré-visualização da Identidade Visual
+      </p>
+
+      <div
+        className="rounded-lg p-5 shadow-inner transition-colors"
+        style={{ backgroundColor: branding.backgroundColor, color: branding.textColor }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4" style={{ borderColor: branding.surfaceColor }}>
+          <div className="flex items-center gap-3">
+            {branding.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={branding.logoUrl} alt="Logo" className="h-8 max-w-[140px] object-contain" />
+            ) : (
+              <span className="text-base font-bold">Logótipo da Empresa</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            {branding.faviconUrl && (
+              <div className="flex items-center gap-1.5 rounded bg-black/20 px-2 py-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={branding.faviconUrl} alt="Favicon" className="h-4 w-4 object-contain" />
+                <span className="text-[10px] text-muted">Favicon</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div
+            className="rounded-lg p-4 transition-colors"
+            style={{ backgroundColor: branding.surfaceColor, color: branding.textColor }}
+          >
+            <p className="text-xs font-medium text-muted">Superfície / Card</p>
+            <p className="mt-1 text-sm font-semibold">Exemplo de Componente</p>
+            <button
+              type="button"
+              className="mt-3 rounded-md px-3 py-1.5 text-xs font-bold transition-transform active:scale-95"
+              style={{ backgroundColor: branding.primaryColor, color: branding.inkColor }}
+            >
+              Botão Principal
+            </button>
+          </div>
+
+          <div
+            className="rounded-lg p-4 border"
+            style={{ borderColor: branding.accentColor, backgroundColor: branding.surfaceColor }}
+          >
+            <p className="text-xs font-medium" style={{ color: branding.accentColor }}>
+              Destaque / Notificação
+            </p>
+            <p className="mt-1 text-xs opacity-90">Personalização em tempo real aplicada.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BrandingEditor({ value, onChange }: EditorProps<"branding">) {
   const set = (patch: Partial<typeof value>) => onChange({ ...value, ...patch });
-  const field = (k: keyof typeof value) => (
-    <div className="flex items-end gap-3">
-      <Field label={k} hint="Código de cor (hex)">
+  const COLOR_LABELS: Record<keyof typeof value, string> = {
+    logoUrl: "Logótipo",
+    faviconUrl: "Favicon",
+    primaryColor: "Cor Primária (Marca)",
+    accentColor: "Cor de Destaque / Alertas",
+    backgroundColor: "Cor de Fundo da Plataforma",
+    surfaceColor: "Cor de Superfície / Painéis",
+    textColor: "Cor do Texto Principal",
+    inkColor: "Cor do Texto de Botões",
+  };
+
+  const field = (k: keyof typeof value) => {
+    if (k === "logoUrl" || k === "faviconUrl") return null;
+    return (
+      <div key={k} className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-muted">{COLOR_LABELS[k] ?? k}</span>
         <div className="flex items-center gap-2">
           <input
             type="color"
             value={value[k]}
             onChange={(e) => set({ [k]: e.target.value } as Partial<typeof value>)}
-            className="h-9 w-9 cursor-pointer rounded border border-line bg-ink"
+            className="h-9 w-9 cursor-pointer rounded border border-line bg-ink p-0.5"
           />
-          <TextInput value={value[k]} onChange={(v) => set({ [k]: v } as Partial<typeof value>)} placeholder="#rrggbb" />
+          <TextInput
+            value={value[k]}
+            onChange={(v) => set({ [k]: v } as Partial<typeof value>)}
+            placeholder="#rrggbb"
+          />
         </div>
-      </Field>
-    </div>
-  );
+      </div>
+    );
+  };
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <Field label="Logótipo (URL)" colSpan hint="URL da imagem do logótipo.">
-        <TextInput value={value.logoUrl} onChange={(v) => set({ logoUrl: v })} placeholder="/icon.png" />
-      </Field>
-      <Field label="Favicon (URL)" colSpan hint="Ícone do separador do navegador.">
-        <TextInput value={value.faviconUrl} onChange={(v) => set({ faviconUrl: v })} placeholder="/icon.png" />
-      </Field>
+      <FileUploadField
+        label="Logótipo da Plataforma"
+        value={value.logoUrl}
+        onChange={(url) => set({ logoUrl: url })}
+        kind="logo"
+        hint="Imagem exibida no cabeçalho, faturas e propostas (PNG, SVG, WEBP)."
+      />
+
+      <FileUploadField
+        label="Favicon do Navegador"
+        value={value.faviconUrl}
+        onChange={(url) => set({ faviconUrl: url })}
+        kind="favicon"
+        hint="Ícone exibido no separador do navegador (ICO, PNG, SVG)."
+      />
+
       {field("primaryColor")}
       {field("accentColor")}
       {field("backgroundColor")}
       {field("surfaceColor")}
       {field("textColor")}
       {field("inkColor")}
+
+      <BrandPreviewCard branding={value} />
     </div>
   );
 }
@@ -362,16 +563,89 @@ function EmailEditor({ value, onChange }: EditorProps<"email">) {
 
 function WhatsAppEditor({ value, onChange }: EditorProps<"whatsapp">) {
   const set = (patch: Partial<typeof value>) => onChange({ ...value, ...patch });
+
+  const cleanPhone = value.phoneNumber.replace(/[^0-9]/g, "");
+  const encodedMsg = encodeURIComponent(value.defaultMessage || "Olá! Gostaria de mais informações.");
+  const testUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodedMsg}` : null;
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <Field label="Número WhatsApp" colSpan>
-        <TextInput value={value.phoneNumber} onChange={(v) => set({ phoneNumber: v })} placeholder="+258 84 000 0000" />
+      <Field
+        label="Número de Contacto WhatsApp"
+        colSpan
+        hint="Inclua o código do país (ex.: +258 84 123 4567 para Moçambique)."
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex-1 min-w-[200px]">
+            <TextInput
+              value={value.phoneNumber}
+              onChange={(v) => set({ phoneNumber: v })}
+              placeholder="+258 84 000 0000"
+            />
+          </div>
+
+          {testUrl && (
+            <a
+              href={testUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+            >
+              <span>Testar no WhatsApp ↗</span>
+            </a>
+          )}
+        </div>
       </Field>
-      <Field label="Mensagem padrão" colSpan>
-        <TextInput value={value.defaultMessage} onChange={(v) => set({ defaultMessage: v })} placeholder="Olá! Gostaria de mais informações." />
+
+      <Field label="Mensagem Padrão de Apresentação" colSpan hint="Mensagem enviada automaticamente ao iniciar a conversa.">
+        <TextInput
+          value={value.defaultMessage}
+          onChange={(v) => set({ defaultMessage: v })}
+          placeholder="Olá! Gostaria de mais informações sobre os vossos serviços."
+        />
       </Field>
+
       <div className="md:col-span-2">
-        <Toggle label="WhatsApp ativado" checked={value.enabled} onChange={(v) => set({ enabled: v })} />
+        <Toggle
+          label="Botão de Suporte WhatsApp Ativo na Loja / Website"
+          checked={value.enabled}
+          onChange={(v) => set({ enabled: v })}
+        />
+      </div>
+
+      <div className="mt-4 rounded-xl border border-line bg-ink p-5 md:col-span-2">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+          Pré-visualização do Widget de WhatsApp no Website
+        </p>
+
+        <div className="flex items-center justify-between rounded-lg border border-line bg-surface p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-lg shadow">
+              WA
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-paper">Suporte ao Cliente IDesign Moz</p>
+              <p className="text-xs text-muted">
+                {value.enabled ? (
+                  <span className="text-emerald-400">● Online no WhatsApp ({value.phoneNumber || "sem número"})</span>
+                ) : (
+                  <span className="text-muted">Desativado no site</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {value.enabled && testUrl && (
+            <a
+              href={testUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-105"
+            >
+              Conversar
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@ark-ui/react": "^5.39.2",
     "@auth/prisma-adapter": "^2.11.3",
     "@aws-sdk/client-s3": "^3.1127.0",
     "@aws-sdk/s3-request-presigner": "^3.1127.0",
@@ -33,6 +34,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.87.0",
+    "recharts": "^3.10.1",
     "redis": "^6.2.1",
     "resend": "^6.26.0",
     "server-only": "^0.0.1",

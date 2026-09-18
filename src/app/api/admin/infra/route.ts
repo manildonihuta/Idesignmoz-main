@@ -105,14 +105,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requirePermissionRoute("infra.manage");
-  if (guard.response) return guard.response;
-
   const csrf = csrfError(request);
   if (csrf) return csrfFailure();
 
   const limited = await applyRateLimit(request, { ...LIMIT, prefix: "admin-infra-action", ip: clientIp(request) });
   if (!limited.ok) return rateLimitResponse(limited.retryAfterSec);
+
+  const guard = await requirePermissionRoute("infra.manage");
+  if (guard.response) return guard.response;
 
   const ip = clientIp(request);
   const actor = getActor(guard, ip);

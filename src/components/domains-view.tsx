@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { domainOrderSchema, type DomainOrderInput } from "@/lib/schemas";
 import { trackEvent } from "@/lib/analytics-client";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
 type ExtensionRow = {
   extension: string;
@@ -126,9 +127,15 @@ export default function DomainsView({ initialExtensions = [] }: { initialExtensi
 
       <form className="domain-form domain-form-page" onSubmit={handleSearch}>
         <input value={domain} onChange={(event) => { setDomain(event.target.value); setResult(null); setOrdered(false); }} aria-label="Nome do domínio" placeholder="oseunegocio" />
-        <select value={extension} onChange={(event) => selectExtension(event.target.value)} aria-label="Extensão do domínio">
-          {extensions.map((ext) => <option key={ext.extension}>{ext.extension}</option>)}
-        </select>
+        <DropdownMenu
+          options={extensions.map((ext) => ({
+            label: ext.extension,
+            onClick: () => selectExtension(ext.extension),
+          }))}
+          className="bg-[#11111198] border-none text-white h-full px-4 rounded-xl"
+        >
+          {extension}
+        </DropdownMenu>
         <button className="button" type="submit" disabled={checking}>
           {checking ? "A verificar…" : "Pesquisar domínio"} <span aria-hidden="true">↗</span>
         </button>

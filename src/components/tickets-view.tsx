@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { ClientTicket } from "@/lib/client-data";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import {
   TICKET_CATEGORIES,
   TICKET_PRIORITIES,
@@ -99,22 +100,30 @@ function NewTicketForm({ onDone }: { onDone: () => void }) {
         />
       </label>
       <div className="ticket-form-grid">
-        <label className="checkout-field">
-          Categoria
-          <select value={category} onChange={(e) => setCategory(e.target.value as TicketCategory)}>
-            {TICKET_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <label className="checkout-field">
-          Prioridade
-          <select value={priority} onChange={(e) => setPriority(e.target.value as TicketPriority)}>
-            {TICKET_PRIORITIES.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </label>
+        <div className="checkout-field flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-white/80">Categoria</span>
+          <DropdownMenu
+            options={TICKET_CATEGORIES.map((c) => ({
+              label: c,
+              onClick: () => setCategory(c),
+            }))}
+            className="w-full bg-[#11111198] text-white border border-white/10"
+          >
+            {category}
+          </DropdownMenu>
+        </div>
+        <div className="checkout-field flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-white/80">Prioridade</span>
+          <DropdownMenu
+            options={TICKET_PRIORITIES.map((p) => ({
+              label: p,
+              onClick: () => setPriority(p),
+            }))}
+            className="w-full bg-[#11111198] text-white border border-white/10"
+          >
+            {priority}
+          </DropdownMenu>
+        </div>
       </div>
       <label className="checkout-field">
         Mensagem *

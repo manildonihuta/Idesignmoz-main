@@ -10,11 +10,12 @@ import { setOrderStatus, deleteOrder } from "@/services/domain.service";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(request: NextRequest) {
-  const guard = await requirePermissionRoute("orders.manage");
-  if (guard.response) return guard.response;
   const ip = clientIp(request);
   const csrf = csrfError(request);
   if (csrf) return csrfFailure();
+
+  const guard = await requirePermissionRoute("orders.manage");
+  if (guard.response) return guard.response;
 
   let body: unknown;
   try {
@@ -38,11 +39,12 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const guard = await requirePermissionRoute("orders.manage");
-  if (guard.response) return guard.response;
   const ip = clientIp(request);
   const csrf = csrfError(request);
   if (csrf) return csrfFailure();
+
+  const guard = await requirePermissionRoute("orders.manage");
+  if (guard.response) return guard.response;
 
   let body: unknown;
   try {

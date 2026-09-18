@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomBytes } from "node:crypto";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
@@ -65,9 +66,10 @@ type CustomerInput = Record<string, unknown>;
 
 function generateOrderNumber(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(8);
   let out = "IDM-";
-  for (let i = 0; i < 6; i += 1) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  for (let i = 0; i < 8; i += 1) {
+    out += alphabet[bytes[i] % alphabet.length];
   }
   return out;
 }

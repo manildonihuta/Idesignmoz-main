@@ -168,14 +168,19 @@ export function BuilderWizard({
         Novo website
       </nav>
 
-      <div>
-        <span className="ai-section-kicker">
-          <span className="ai-dot" />
-          IDesign AI Builder
-        </span>
-        <h1 className="ai-display mt-4 text-2xl">
-          Criar um novo <span className="ai-gradient-text">website</span>
-        </h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="ai-section-kicker">
+            <span className="ai-dot" />
+            IDesign AI Builder
+          </span>
+          <h1 className="ai-display mt-2 text-2xl">
+            Criar um novo <span className="ai-gradient-text">website grátis</span>
+          </h1>
+        </div>
+        <div className="rounded-xl border border-[var(--ai-brand-soft)]/50 bg-[var(--ai-surface-2)] px-4 py-2 text-xs">
+          <span className="font-bold text-[#3fbf5a]">⚡ 100% Grátis (0 MT)</span> · Sem cartão de crédito
+        </div>
       </div>
 
       <ol className="flex flex-wrap items-center gap-3">
@@ -197,6 +202,15 @@ export function BuilderWizard({
 
       {step === 0 && (
         <section className="ai-card ai-card-pad space-y-8">
+          <div className="rounded-xl border border-[var(--ai-border)] bg-[var(--ai-surface-2)] p-4 text-xs leading-relaxed text-[var(--ai-muted)] flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <b className="text-[var(--ai-ink)]">🎁 Plano Grátis Incluído:</b> O seu site será criado e publicado gratuitamente com endereço instantâneo. Poderá ligar um domínio personalizado (<code className="text-[var(--ai-ink)]">.co.mz</code>, <code className="text-[var(--ai-ink)]">.com</code>) a qualquer momento.
+            </div>
+            <a className="text-[var(--ai-brand-soft)] underline font-semibold" href="/domains/search" target="_blank" rel="noreferrer">
+              Ver domínios disponíveis ↗
+            </a>
+          </div>
+
           {templateName ? (
             <div className="ai-card ai-card-pad flex flex-wrap items-center justify-between gap-3 !py-4">
               <span className="text-sm">
@@ -248,7 +262,12 @@ export function BuilderWizard({
               />
             </label>
             <label className="block">
-              <span className="ai-label">Domínio (opcional)</span>
+              <div className="flex items-center justify-between">
+                <span className="ai-label">Domínio desejado (opcional)</span>
+                <a className="text-[10px] text-[var(--ai-brand-soft)] hover:underline" href={`/domains/search?query=${encodeURIComponent(form.domain || form.businessName || "meunegocio")}`} target="_blank" rel="noreferrer">
+                  Pesquisar .co.mz ↗
+                </a>
+              </div>
               <input
                 className="ai-input"
                 value={form.domain}
