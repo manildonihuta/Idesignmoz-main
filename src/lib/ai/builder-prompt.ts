@@ -15,7 +15,7 @@ export type SiteBrief = {
   images?: { hero?: string; about?: string; gallery?: string[] };
 };
 
-export const AI_BRAND_COLOR = "#E31E24";
+export const AI_BRAND_COLOR = "#5227ff";
 
 export const STYLE_GUIDANCE: Record<string, string> = {
   modern:

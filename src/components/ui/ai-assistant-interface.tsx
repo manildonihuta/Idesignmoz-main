@@ -114,12 +114,12 @@ export function AIAssistantInterface({
                 </mask>
                 <g mask="url(#ai-logo-mask)">
                   <path fill="#fff" d="M200 0H0v200h200V0z" />
-                  <path fill="#e31e24" fillOpacity="0.62" d="M200 0H0v200h200V0z" />
+                  <path fill="#5227ff" fillOpacity="0.62" d="M200 0H0v200h200V0z" />
                   <g filter="url(#ai-logo-blur)" className="animate-gradient">
-                    <path fill="#e31e24" d="M110 32H18v68h92V32z" />
-                    <path fill="#7c3aed" d="M188-24H15v98h173v-98z" />
-                    <path fill="#ff5a5f" d="M175 70H5v156h170V70z" />
-                    <path fill="#ff8f8f" d="M230 51H100v103h130V51z" />
+                    <path fill="#5227ff" d="M110 32H18v68h92V32z" />
+                    <path fill="#7952ff" d="M188-24H15v98h173v-98z" />
+                    <path fill="#9333ea" d="M175 70H5v156h170V70z" />
+                    <path fill="#a385ff" d="M230 51H100v103h130V51z" />
                   </g>
                 </g>
               </g>

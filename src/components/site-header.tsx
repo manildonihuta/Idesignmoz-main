@@ -146,7 +146,6 @@ const track: NavItem[] = [
 ];
 
 export function SiteHeader({ anchors = false }: SiteHeaderProps) {
-  const ctaHref = anchors ? "#contact" : "/contact";
   const searchHref = anchors ? "#domains" : "/domains/search";
 
   return (
@@ -162,11 +161,10 @@ export function SiteHeader({ anchors = false }: SiteHeaderProps) {
       right={(onNavigate) => (
         <>
           <HeaderAuth onNavigate={onNavigate} />
-          <Link className="outline-button button-small" href="/websites" onClick={onNavigate}>
-            Site Grátis com IA <Arrow />
-          </Link>
-          <Link className="button button-small nav-cta" href={ctaHref} onClick={onNavigate}>
-            Começar <Arrow />
+          <Link className="button button-small nav-cta flex items-center gap-1.5" href="/websites" onClick={onNavigate}>
+            <Sparkles className="h-3.5 w-3.5 text-lime" />
+            <span>Criar site com IA</span>
+            <Arrow />
           </Link>
         </>
       )}

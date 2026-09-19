@@ -83,7 +83,7 @@ export default async function PublicSitePage({ params }: { params: Promise<Param
           Criado gratuitamente com{" "}
           <a
             href="/"
-            style={{ color: "#c8ff4d", fontWeight: 700, textDecoration: "none" }}
+            style={{ color: "#5227ff", fontWeight: 700, textDecoration: "none" }}
             target="_blank"
             rel="noreferrer"
           >
@@ -97,7 +97,7 @@ export default async function PublicSitePage({ params }: { params: Promise<Param
             fontSize: "0.7rem",
             fontWeight: 700,
             color: "#ffffff",
-            background: "#e60023",
+            background: "#5227ff",
             borderRadius: "1rem",
             padding: "0.3rem 0.85rem",
             textDecoration: "none",

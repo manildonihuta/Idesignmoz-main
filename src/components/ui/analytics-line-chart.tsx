@@ -56,7 +56,7 @@ export function AnalyticsLineChart({
   lowValue = "850,00 MT",
   changeValue = "+8.2%",
   data = defaultPortfolioData,
-  color = "#d9ff53",
+  color = "#5227ff",
 }: AnalyticsLineChartProps) {
   const chartConfig = {
     value: {

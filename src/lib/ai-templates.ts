@@ -94,7 +94,7 @@ export const AI_TEMPLATES: AiTemplate[] = [
     description:
       "Escritório de serviços profissionais: apresentação, equipa, serviços e contactos. Limpo, de confiança e direto.",
     style: "minimal",
-    colors: { from: "#111827", to: "#4B5563", accent: "#E31E24" },
+    colors: { from: "#111827", to: "#4B5563", accent: "#5227ff" },
     pages: 4,
     brief:
       "Consultoria de negócios para PME. Destacar serviços, vantagens, casos de sucesso e contacto para reunião.",
@@ -216,7 +216,7 @@ export function createFallbackSitePayload(input: {
   const template = input.templateId ? getAiTemplate(input.templateId) : null;
   const name = input.businessName || "Empresa Moçambicana";
   const tagline = input.tagline || template?.description || "Soluções de Excelência e Inovação em Moçambique";
-  const primary = input.primaryColor || template?.colors.from || "#E31E24";
+  const primary = input.primaryColor || template?.colors.from || "#5227ff";
   const accent = input.accentColor || template?.colors.accent || "#7C3AED";
   const heroImage = template?.images.hero || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80";
   const aboutImage = template?.images.about || "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80";

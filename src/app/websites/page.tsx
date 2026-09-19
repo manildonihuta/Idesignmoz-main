@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SiteHeader } from "@/components/site-header";
+import { HowItWorksStepper } from "@/components/how-it-works-stepper";
 import { SiteFooter } from "@/components/site-footer";
 import { JsonLd } from "@/components/json-ld";
 import { formatMZN } from "@/lib/currency";
@@ -133,14 +134,12 @@ export default async function WebsitesPage() {
           </div>
         )}
 
-        <div className="mt-8 rounded-xl border border-line bg-surface p-6">
-          <h2 className="font-display-2 text-lg font-semibold tracking-tight">Como funciona</h2>
-          <ol className="mt-3 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-            <li><b>1 · Crie Grátis</b> com IA ou escolha um pacote feito à medida.</li>
-            <li><b>2 · Personalize</b> os seus conteúdos, cores e serviços online.</li>
-            <li><b>3 · Registe Domínio</b> (.co.mz, .com) para passar imagem de confiança.</li>
-            <li><b>4 · Lançamento</b> — publique online instantaneamente.</li>
-          </ol>
+        <div className="mt-12">
+          <div className="mb-4 text-center">
+            <h2 className="font-display-2 text-2xl font-bold tracking-tight text-white">Como funciona</h2>
+            <p className="text-sm text-white/60 mt-1">Do briefing inicial ao lançamento em 4 passos simples.</p>
+          </div>
+          <HowItWorksStepper />
         </div>
       </main>
       <SiteFooter />

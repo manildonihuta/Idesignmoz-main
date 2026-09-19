@@ -33,7 +33,7 @@ const TYPOGRAPHY: { id: "sans" | "display" | "mono"; label: string; desc: string
 
 const COLORS: { id: "auto" | "brand" | "custom"; label: string; desc: string }[] = [
   { id: "auto", label: "Automático", desc: "A IA escolhe a paleta ideal." },
-  { id: "brand", label: "Marca IDesign", desc: "Usa o vermelho IDesign como cor principal." },
+  { id: "brand", label: "Marca IDesign", desc: "Usa a cor IDesign (#5227ff) como cor principal." },
   { id: "custom", label: "Personalizada", desc: "Defina a cor principal (código hexadecimal)." },
 ];
 
@@ -67,7 +67,7 @@ function defaultForm(initialBrief: string, template?: AiTemplate | null): Form {
     brief: initialBrief || template?.brief || "",
     style: template?.style ?? "modern",
     color: "auto",
-    customColor: "#E31E24",
+    customColor: "#5227ff",
     typography: "sans",
   };
 }
@@ -354,7 +354,7 @@ export function BuilderWizard({
                       <input
                         type="color"
                         className="h-8 w-12 cursor-pointer rounded-md border border-[var(--ai-border)] bg-transparent"
-                        value={/^#[0-9a-fA-F]{6}$/.test(form.customColor) ? form.customColor : "#E31E24"}
+                        value={/^#[0-9a-fA-F]{6}$/.test(form.customColor) ? form.customColor : "#5227ff"}
                         onChange={(e) => set("customColor", e.target.value)}
                         aria-label="Cor principal"
                       />
@@ -362,7 +362,7 @@ export function BuilderWizard({
                         className="ai-input !w-28 !py-1.5"
                         value={form.customColor}
                         onChange={(e) => set("customColor", e.target.value)}
-                        placeholder="#E31E24"
+                        placeholder="#5227ff"
                         maxLength={9}
                       />
                     </span>

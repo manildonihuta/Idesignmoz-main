@@ -44,7 +44,7 @@ const CATEGORIES: AssistantCategory[] = [
     icon: <Palette size={16} />,
     panelTitle: "Sugestões de estilo",
     items: [
-      "Usa o vermelho #E31E24 como cor principal",
+      "Usa o índigo #5227ff como cor principal",
       "Usa o verde #22C55E como cor de destaque",
       "Muda a tipografia para o estilo display",
       "Ativa o modo escuro do site",

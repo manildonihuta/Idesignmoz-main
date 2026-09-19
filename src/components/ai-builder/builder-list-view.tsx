@@ -68,7 +68,7 @@ export function BuilderListView() {
         <div
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
           style={{
-            borderColor: "rgba(230,0,35,0.2)",
+            borderColor: "rgba(82,39,255,0.2)",
             background: "linear-gradient(135deg, #181210 0%, #0f0f0f 100%)",
           }}
         >
@@ -92,7 +92,7 @@ export function BuilderListView() {
                 className="h-full rounded-full transition-all"
                 style={{
                   width: `${Math.min(100, (quota.used / quota.limit) * 100)}%`,
-                  background: quota.used >= quota.limit ? "#e60023" : "var(--lime)",
+                  background: quota.used >= quota.limit ? "#ef4444" : "var(--lime)",
                 }}
               />
             </div>

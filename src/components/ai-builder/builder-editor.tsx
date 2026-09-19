@@ -583,12 +583,12 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                           <input
                             type="color"
                             className="h-8 w-10 cursor-pointer rounded border border-[var(--ai-border)] bg-transparent"
-                            value={site.theme.primaryColor || "#E31E24"}
+                            value={site.theme.primaryColor || "#5227ff"}
                             onChange={(e) => void patchSite({ primaryColor: e.target.value })}
                           />
                           <input
                             className="ai-input !py-1 text-xs font-mono"
-                            value={site.theme.primaryColor || "#E31E24"}
+                            value={site.theme.primaryColor || "#5227ff"}
                             onChange={(e) => void patchSite({ primaryColor: e.target.value })}
                           />
                         </div>
@@ -801,7 +801,7 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                         <input
                           type="color"
                           className="h-9 w-12 cursor-pointer rounded-lg border border-[var(--ai-border)] bg-transparent"
-                          value={/^#[0-9a-fA-F]{6}$/.test(site.theme.primaryColor ?? "") ? (site.theme.primaryColor as string) : "#E31E24"}
+                          value={/^#[0-9a-fA-F]{6}$/.test(site.theme.primaryColor ?? "") ? (site.theme.primaryColor as string) : "#5227ff"}
                           onChange={(e) => void patchSite({ primaryColor: e.target.value })}
                           aria-label="Cor principal"
                         />
@@ -809,7 +809,7 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                           className="ai-input !py-1.5 font-mono text-xs"
                           value={site.theme.primaryColor ?? ""}
                           onChange={(e) => void patchSite({ primaryColor: e.target.value })}
-                          placeholder="#E31E24"
+                          placeholder="#5227ff"
                           maxLength={9}
                         />
                       </div>
@@ -834,7 +834,7 @@ export function BuilderEditor({ initialSite }: { initialSite: BuilderSite }) {
                       </div>
                     </div>
                     <div className="rounded-lg border border-[var(--ai-border)] bg-[var(--ai-surface-2)] px-3 py-2 text-xs text-[var(--ai-muted)]">
-                      Também pode pedir ao 🤖 assistente: “usa o vermelho #E31E24 como cor principal”.
+                      Também pode pedir ao 🤖 assistente: “usa o índigo #5227ff como cor principal”.
                     </div>
                   </div>
                 </div>

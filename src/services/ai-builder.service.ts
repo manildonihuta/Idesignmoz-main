@@ -220,7 +220,7 @@ export async function generateSite(ctx: AuthContext, input: GenerateSiteInput): 
 
   // Priority: explicit primaryColor > brand > custom accent. Falls back to AI pick.
   let forcedPrimaryColor = primaryColor;
-  if (!forcedPrimaryColor && colorPreference === "brand") forcedPrimaryColor = "#E31E24";
+  if (!forcedPrimaryColor && colorPreference === "brand") forcedPrimaryColor = "#5227ff";
   if (!forcedPrimaryColor && colorPreference === "custom" && accentColor) forcedPrimaryColor = accentColor;
 
   if (!businessName) return fail(400, "Indique o nome do negócio.");
@@ -683,7 +683,7 @@ export async function chatAssistant(
   if (rawObj.action === "setTheme") {
     const themePatch = parseAssistantTheme(rawObj.theme);
     if (Object.keys(themePatch).length === 0) {
-      return { ok: true, action: { action: "respond", text: "Não conseguí identificar que cores ou tipografia pretende alterar. Diga, por exemplo: “usa o vermelho #E31E24 como cor principal”." }, pageId: targetPage.id };
+      return { ok: true, action: { action: "respond", text: "Não conseguí identificar que cores ou tipografia pretende alterar. Diga, por exemplo: “usa a cor #5227ff como cor principal”." }, pageId: targetPage.id };
     }
     const theme = { ...owned.theme, ...themePatch };
     const { error } = await supabaseAdmin.from("builder_sites").update({ theme }).eq("id", siteId);

@@ -37,7 +37,7 @@ export default function HeroAntigravity() {
         waveAmplitude={1.4}
         particleSize={0.5}
         lerpSpeed={0.05}
-        color="#e60023"
+        color="#5227ff"
         autoAnimate
         particleVariance={0.6}
         depthFactor={1.2}

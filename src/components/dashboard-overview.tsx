@@ -59,7 +59,7 @@ export function DashboardOverview({
           highValue="45.2 GB"
           lowValue="4.8 GB"
           changeValue="+15.4%"
-          color="#d9ff53"
+          color="#5227ff"
           data={[
             { date: '1 Set', value: 320 },
             { date: '5 Set', value: 480 },

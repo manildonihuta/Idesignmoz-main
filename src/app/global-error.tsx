@@ -16,7 +16,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
       <head>
         <title>Algo correu mal — IDesign Moz</title>
         <style>{`
-          :root { --ink:#000000; --paper:#f2f0eb; --muted:#96938c; --line:#2b2c2b; --brand:#e60023; --surface:#11110f; }
+          :root { --ink:#000000; --paper:#f2f0eb; --muted:#96938c; --line:#2b2c2b; --brand:#5227ff; --surface:#11110f; }
           * { box-sizing: border-box; }
           html, body { margin: 0; height: 100%; }
           body { background: var(--surface); color: var(--paper); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: grid; place-items: center; }

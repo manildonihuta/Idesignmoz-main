@@ -17,6 +17,7 @@ import { FUTURE_FEATURES, type FutureFeature } from "@/lib/platform-futures";
 import HeroAntigravity from "@/components/hero-antigravity";
 import { SelectedWorksGrid } from "@/components/selected-works-grid";
 import ThreeDTestimonials from "@/components/ui/3d-testimonails";
+import { HowItWorksStepper } from "@/components/how-it-works-stepper";
 
 export const dynamic = "force-dynamic";
 
@@ -188,17 +189,8 @@ export default async function HomePage() {
             </h2>
             <p>Do primeiro domínio ao painel de gestão, sem sair do mesmo ecossistema.</p>
           </div>
-          <div className="case-grid">
-            {funnelSteps.map((step) => (
-              <Link key={step.n} className="case-card" href={step.href}>
-                <span>{step.n}</span>
-                <h3>{step.title}</h3>
-                <p>{step.text}</p>
-                <b style={{ color: "var(--lime)", fontSize: 12, marginTop: "auto" }}>
-                  {step.cta} <Arrow />
-                </b>
-              </Link>
-            ))}
+          <div className="mt-8">
+            <HowItWorksStepper />
           </div>
         </section>
 
@@ -208,7 +200,7 @@ export default async function HomePage() {
             className="rounded-2xl border p-6 md:p-10"
             style={{
               background: "linear-gradient(135deg, #181d12 0%, #0b0c0a 100%)",
-              borderColor: "rgba(230,0,35,0.18)",
+              borderColor: "rgba(82,39,255,0.18)",
             }}
           >
             <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
@@ -216,7 +208,7 @@ export default async function HomePage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="site-status live">Disponível Agora</span>
                   <span
-                    style={{ border: "1px solid rgba(230,0,35,0.35)", color: "#e60023" }}
+                    style={{ border: "1px solid rgba(82,39,255,0.35)", color: "#5227ff" }}
                     className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
                   >
                     0 MT · Totalmente Grátis

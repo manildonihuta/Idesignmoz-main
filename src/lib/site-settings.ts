@@ -55,12 +55,12 @@ export type BrandingSettings = {
 export const DEFAULT_BRANDING: BrandingSettings = {
   logoUrl: "/icon.png",
   faviconUrl: "/icon.png",
-  primaryColor: "#d9ff53",
-  accentColor: "#e60023",
+  primaryColor: "#5227ff",
+  accentColor: "#5227ff",
   backgroundColor: "#0b0c0a",
   surfaceColor: "#14140f",
   textColor: "#f4f4ee",
-  inkColor: "#171812",
+  inkColor: "#ffffff",
 };
 
 /* ----------------------------- Domains ----------------------------- */
